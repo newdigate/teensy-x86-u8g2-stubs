@@ -140,6 +140,7 @@ set(SOURCE_FILES
 
 set(HEADER_FILES
 	csrc/u8x8.h
+	csrc/u8g2.h
 	cppsrc/MUIU8g2.h 
 	cppsrc/U8g2lib.h
 	cppsrc/U8x8lib.h
