@@ -9,8 +9,8 @@ set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib/teensy_x86_u8g2_stubs )
 
 find_package(teensy_x86_stubs)
 include_directories(${teensy_x86_stubs_INCLUDE_DIR})
-
 include_directories(csrc)
+add_compile_definitions(U8X8_NO_HW_SPI U8X8_NO_HW_I2C)
 
 set(SOURCE_FILES
 	csrc/mui_u8g2.c
@@ -135,7 +135,7 @@ set(SOURCE_FILES
 	csrc/u8x8_u8toa.c
 	csrc/u8x8_u16toa.c
 	cppsrc/U8g2lib.cpp 
-	#cppsrc/U8x8lib.cpp
+	cppsrc/U8x8lib.cpp
 )
 
 set(HEADER_FILES
