@@ -86,7 +86,7 @@ public:
 
         /* Create a windowed mode window and its OpenGL context */
         int width = (_drawFrame)? 128+(_frameSize*2) : 128;
-        int height = (_drawFrame)? 128+(_frameSize*2) : 128;
+        int height = (_drawFrame)? 64+(_frameSize*2) : 64;
         st7735_opengl_window::window = glfwCreateWindow(width, height, "u8g2 128x64", NULL, NULL);
         if (!st7735_opengl_window::window) {
             glfwTerminate();
@@ -146,8 +146,8 @@ public:
         float vertices[] = {
                 // positions          // colors           // texture coords
                 1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f, // top right
-                1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f, // bottom right
-                -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f, // bottom left
+                1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.5f, // bottom right
+                -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.5f, // bottom left
                 -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 0.0f  // top left
         };
         if (_drawFrame) {
@@ -380,16 +380,7 @@ public:
         }
         return 1;
     }
-    static void print_byte(uint8_t byte)
-    {
-        const char *bit_rep[16] = {
-                [ 0] = "0000", [ 1] = "0001", [ 2] = "0010", [ 3] = "0011",
-                [ 4] = "0100", [ 5] = "0101", [ 6] = "0110", [ 7] = "0111",
-                [ 8] = "1000", [ 9] = "1001", [10] = "1010", [11] = "1011",
-                [12] = "1100", [13] = "1101", [14] = "1110", [15] = "1111",
-        };
-        printf("%s%s", bit_rep[byte >> 4], bit_rep[byte & 0x0F]);
-    }
+
     static uint8_t u8x8_d_opengl_generic(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
     {
         uint8_t y, x, c, cmax;
@@ -405,23 +396,17 @@ public:
                 {
                     c = ((u8x8_tile_t *)arg_ptr)->cnt;
                     cmax = c;
-                    printf("Draw tile: x: %d, y: %d, c:%d, arg_int:%d \n", x, y, c, arg_int);
                     ptr = ((u8x8_tile_t *)arg_ptr)->tile_ptr;
                     do
                     {
-                        printf("c:%d \n", c);
                         for (int i=0; i<8; i++) {
                             uint8_t value = *ptr;
-                            print_byte(value);
-                            printf(" y: %d, x: %d", y, x+i);
                             for (int j = 0; j < 8; j++) {
                                 uint16_t color = bitRead(value, j) ? 0xFFFF : 0x0000;
                                 uint16_t index = (((j + y) * 128) + (i + x + ((cmax-c) * 8)));
-                                printf(" [%d:%d] ", j, index);
                                 if (color == 0xFFFF)
                                     st7735_opengl_window::textureImage[index] = color;
                             }
-                            printf("\n");
                             ptr++;
                         }
                         c--;
