@@ -319,19 +319,66 @@ unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
 int16_t st7735_opengl_window::_frameSize = 0;
 
+struct encoder_model {
+public:
+    int addr;
+    int16_t rmin;
+    int16_t rmax;
+    int16_t rstep;
+    int16_t rval;
+    uint8_t rloop;
+};
+
+template<typename Wire_T>
 class U8G2_128X64_OPENGL : public U8G2 {
 public:
 
-    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255) : U8G2() {
-
+    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255, Wire_T *wire = nullptr) :
+        U8G2()
+    {
         u8g2_Setup_opengl_128x64(&u8g2, rotation, u8x8_byte_arduino_4wire_sw_spi, u8x8_gpio_and_delay_arduino);
-        //u8x8_SetPin_4Wire_SW_SPI(getU8x8(), clock, data, cs, dc, reset);
+        //printf("u8g2 wire1: %lx\n", (unsigned long)wire);
+        _wire = wire;
+        if (_wire) {
+            _wire->onDataSentToDevice = dataSentToDevice;
+           /* if (_wire->onDataSentToDevice) {
+                _wire->onDataSentToDevice(1);
+            }
+            */
+        }
 
         if (st7735_opengl_window::InitOpenGL(0, false, key_callback, character_callback))
             return;
     }
 
     virtual ~U8G2_128X64_OPENGL() = default;
+
+    static void dataSentToDevice(uint8_t address) {
+        std::vector<uint8_t>* queue = _wire->getDeviceRequestQueue(address);
+        if (queue) {
+            if (queue->size() == 10) {
+                encoder_model *selectedEncoder = nullptr;
+                for (auto &index: encoders) {
+                    if (index.addr == address) {
+                        selectedEncoder = &index;
+                        break;
+                    }
+                }
+                if (selectedEncoder) {
+                    selectedEncoder->rval  = (int16_t)((*queue)[1] << 8 | (*queue)[0]);
+                    selectedEncoder->rloop = (int16_t)((*queue)[3] << 8 | (*queue)[2]);
+                    selectedEncoder->rmin  = (int16_t)((*queue)[5] << 8 | (*queue)[4]);
+                    selectedEncoder->rmax  = (int16_t)((*queue)[7] << 8 | (*queue)[6]);
+                    selectedEncoder->rstep = (int16_t)((*queue)[9] << 8 | (*queue)[8]);
+                }
+                queue->clear();
+            }
+        }
+    }
+
+    void setDrawColor(uint8_t drawColor) {
+        U8G2::setDrawColor(drawColor);
+    }
 
     void Pixel(int16_t x, int16_t y, uint16_t color) {
         uint16_t index = y * 128 + x;
@@ -402,10 +449,9 @@ public:
                         for (int i=0; i<8; i++) {
                             uint8_t value = *ptr;
                             for (int j = 0; j < 8; j++) {
-                                uint16_t color = bitRead(value, j) ? 0xFFFF : 0x0000;
+                                bool color = bitRead(value, j);
                                 uint16_t index = (((j + y) * 128) + (i + x + ((cmax-c) * 8)));
-                                if (color == 0xFFFF)
-                                    st7735_opengl_window::textureImage[index] = color;
+                                st7735_opengl_window::textureImage[index] = color? 0xFFFF : 0x0000;
                             }
                             ptr++;
                         }
@@ -447,153 +493,67 @@ public:
             /* pixel_width = */ 128,
             /* pixel_height = */ 64
     };
-    /*
-    void updateScreen(void) override { }
 
-    void readRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *pcolors) override {
-        // Use our Origin.
-        x+=_originx;
-        y+=_originy;
-        //BUGBUG:: Should add some validation of X and Y
-
-        if (_useFramebuffer) {
-            uint16_t * _pfbtft = st7735_opengl_window::textureImage;
-            uint16_t * pfbPixel_row = &_pfbtft[ y*_width + x];
-            for (;h>0; h--) {
-                uint16_t * pfbPixel = pfbPixel_row;
-                for (int i = 0 ;i < w; i++) {
-                    *pcolors++ = *pfbPixel++;
-                }
-                pfbPixel_row += _width;
-            }
-            return;
-        }
-    }
-    
-    void writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *pcolors) override {
-        x += _originx;
-        y += _originy;
-
-        uint16_t x_clip_left = 0;  // How many entries at start of colors to skip at start of row
-        uint16_t x_clip_right = 0;    // how many color entries to skip at end of row for clipping
-        // Rectangular clipping
-
-        // See if the whole thing out of bounds...
-        if ((x >= _displayclipx2) || (y >= _displayclipy2)) return;
-        if (((x + w) <= _displayclipx1) || ((y + h) <= _displayclipy1)) return;
-
-        // In these cases you can not do simple clipping, as we need to synchronize the colors array with the
-        // We can clip the height as when we get to the last visible we don't have to go any farther.
-        // also maybe starting y as we will advance the color array.
-        if (y < _displayclipy1) {
-            int dy = (_displayclipy1 - y);
-            h -= dy;
-            pcolors += (dy * w); // Advance color array to
-            y = _displayclipy1;
-        }
-        if ((y + h - 1) >= _displayclipy2) h = _displayclipy2 - y;
-        // For X see how many items in color array to skip at start of row and likewise end of row
-        if (x < _displayclipx1) {
-            x_clip_left = _displayclipx1 - x;
-            w -= x_clip_left;
-            x = _displayclipx1;
-        }
-
-        if ((x + w - 1) >= _displayclipx2) {
-            x_clip_right = w;
-            w = _displayclipx2 - x;
-            x_clip_right -= w;
-        }
-
-        if (_useFramebuffer) {
-            uint16_t *_pfbtft = st7735_opengl_window::textureImage;
-            uint16_t *pfbPixel_row = &_pfbtft[y * _width + x];
-            for (; h > 0; h--) {
-                uint16_t *pfbPixel = pfbPixel_row;
-                pcolors += x_clip_left;
-                for (int i = 0; i < w; i++) {
-                    *pfbPixel++ = *pcolors++;
-                }
-                pfbPixel_row += _width;
-                pcolors += x_clip_right;
-
-            }
-            return;
-        }
-    }
-*/
-
+    static encoder_model encoders[5];
 
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-        /*
+
         if (action == GLFW_RELEASE) {
+            bool isEncoderChange = false;
+            bool isEncoderIncreased = false;
+            uint8_t encoderIndex = 0;
             switch(key) {
+                case GLFW_KEY_SPACE: break;
                 case GLFW_KEY_1:
-                case GLFW_KEY_SPACE: {
-                    if (_button != nullptr) {
-                        _button->setState(false);
-                    }
+                case GLFW_KEY_3:
+                case GLFW_KEY_5:
+                case GLFW_KEY_7:
+                case GLFW_KEY_9:
+                {
+                    isEncoderChange = true;
+                    isEncoderIncreased = false;
+                    encoderIndex = (key - GLFW_KEY_0)/2;
                     break;
                 }
-                case GLFW_KEY_2: {
-                    if (_button2 != nullptr) {
-                        _button2->setState(false);
-                    }
+                case GLFW_KEY_2:
+                case GLFW_KEY_4:
+                case GLFW_KEY_6:
+                case GLFW_KEY_8:
+                {
+                    isEncoderChange = true;
+                    isEncoderIncreased = true;
+                    encoderIndex = (key - GLFW_KEY_0)/2 - 1;
                     break;
-                }              
-                case GLFW_KEY_3: {
-                    if (_button3 != nullptr) {
-                        _button3->setState(false);
-                    }
+                }
+                case GLFW_KEY_0:
+                {
+                    isEncoderChange = true;
+                    isEncoderIncreased = true;
+                    encoderIndex = 4;
                     break;
-                }                      
+                }
+            }
+
+            if (isEncoderChange){
+                Serial.printf("[encoder inc %d] ", encoderIndex);
+                encoder_model &encoder = encoders[encoderIndex];
+                if (isEncoderIncreased && encoder.rval < encoder.rmax - encoder.rstep )
+                    encoder.rval+=encoder.rstep;
+                else if (encoder.rval > encoder.rmin + encoder.rstep)
+                    encoder.rval-=encoder.rstep;
+                Serial.printf("value: %d\n", encoder.rval);
+                if (_wire != nullptr) {
+                    _wire->addDeviceDataResponse(encoder.addr, encoder.rval & 0x00FF );
+                    _wire->addDeviceDataResponse(encoder.addr, encoder.rval >> 8);
+                }
             }
         } else if (action == GLFW_PRESS)
         {
             switch(key) {
-                case GLFW_KEY_1:
-                case GLFW_KEY_SPACE: {
-                    if (_button != nullptr) {
-                        _button->setState(true);
-                    }
-                    break;
-                }
-                case GLFW_KEY_2: {
-                    if (_button2 != nullptr) {
-                        _button2->setState(true);
-                    }
-                    break;
-                }              
-                case GLFW_KEY_3: {
-                    if (_button3 != nullptr) {
-                        _button3->setState(true);
-                    }
-                    break;
-                }      
-                case GLFW_KEY_UP: {
-                    if (_encoderUpDown != nullptr) {
-                        _encoderUpDown->increase(-4);
-                    }
-                    break;
-                }
-                case GLFW_KEY_DOWN: {
-                    if (_encoderUpDown != nullptr) {
-                        _encoderUpDown->increase(4);
-                    }
-                    break;
-                }
-                case GLFW_KEY_LEFT: {
-                    if (_encoderLeftRight != nullptr) {
-                        _encoderLeftRight->increase(-4);
-                    }
-                    break;
-                }
-                case GLFW_KEY_RIGHT: {
-                    if (_encoderUpDown != nullptr) {
-                        _encoderLeftRight->increase(4);
-                    }
-                    break;
-                }
+                case GLFW_KEY_UP:
+                case GLFW_KEY_DOWN:
+                case GLFW_KEY_LEFT:
+                case GLFW_KEY_RIGHT:
                 case GLFW_KEY_ENTER: {
                     char *s = new char[_textCharacterInput.length()];
                     memcpy(s, _textCharacterInput.c_str(), _textCharacterInput.length());
@@ -612,7 +572,7 @@ public:
             }
 
         }
-         */
+
     }
 
     static void character_callback(GLFWwindow* window, unsigned int codepoint) {
@@ -624,9 +584,17 @@ public:
 
 private:
     static std::string _textCharacterInput;
+    static Wire_T *_wire;
 
 };
+template <typename Wire_T> encoder_model U8G2_128X64_OPENGL<Wire_T>::encoders[5] = {
+        {0x36,0,0,0,0,0},
+        {0x37,0,0,0,0,0},
+        {0x38,0,0,0,0,0},
+        {0x39,0,0,0,0,0},
+        {0x40,0,0,0,0,0}};
 
-
+template <typename Wire_T> Wire_T *U8G2_128X64_OPENGL<Wire_T>::_wire;
+template <typename Wire_T> std::string U8G2_128X64_OPENGL<Wire_T>::_textCharacterInput;
 
 #endif //TEENSY_U8G2_OPENGL_H
