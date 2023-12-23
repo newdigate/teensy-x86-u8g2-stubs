@@ -12,7 +12,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <U8g2lib.h>
-
+#include <map>
 #else
 #define GLEW_STATIC
 #include <GL/glew.h>
@@ -329,16 +329,17 @@ public:
     uint8_t rloop;
 };
 
-template<typename Wire_T>
+template<typename Wire_T, typename Keypad_T>
 class U8G2_128X64_OPENGL : public U8G2 {
 public:
 
-    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255, Wire_T *wire = nullptr) :
+    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255, Wire_T *wire = nullptr, Keypad_T *keypad = nullptr) :
         U8G2()
     {
         u8g2_Setup_opengl_128x64(&u8g2, rotation, u8x8_byte_arduino_4wire_sw_spi, u8x8_gpio_and_delay_arduino);
         //printf("u8g2 wire1: %lx\n", (unsigned long)wire);
         _wire = wire;
+        _keypad = keypad;
         if (_wire) {
             _wire->onDataSentToDevice = dataSentToDevice;
            /* if (_wire->onDataSentToDevice) {
@@ -472,38 +473,50 @@ public:
     }
 
     constexpr static const u8x8_display_info_t u8x8_opengl_128x64_noname_display_info =
-    {
-            /* chip_enable_level = */ 0,
-            /* chip_disable_level = */ 1,
-            /* post_chip_enable_wait_ns = */ 20,
-            /* pre_chip_disable_wait_ns = */ 10,
-            /* reset_pulse_width_ms = */ 100, 	/* SSD1306: 3 us */
-            /* post_reset_wait_ms = */ 100, /* far east OLEDs need much longer setup time */
-            /* sda_setup_time_ns = */ 50,		/* SSD1306: 15ns, but cycle time is 100ns, so use 100/2 */
-            /* sck_pulse_width_ns = */ 50,	/* SSD1306: 20ns, but cycle time is 100ns, so use 100/2, AVR: below 70: 8 MHz, >= 70 --> 4MHz clock */
-            /* sck_clock_hz = */ 4000000UL,	/* since Arduino 1.6.0, the SPI bus speed in Hz. Should be  1000000000/sck_pulse_width_ns */
-            /* spi_mode = */ 0,		/* active high, rising edge */
-            /* i2c_bus_clock_100kHz = */ 4,
-            /* data_setup_time_ns = */ 40,
-            /* write_pulse_width_ns = */ 150,	/* SSD1306: cycle time is 300ns, so use 300/2 = 150 */
-            /* tile_width = */ 16,
-            /* tile_height = */ 8,
-            /* default_x_offset = */ 0,
-            /* flipmode_x_offset = */ 0,
-            /* pixel_width = */ 128,
-            /* pixel_height = */ 64
-    };
+            {
+                    /* chip_enable_level = */ 0, /* chip_disable_level = */ 1,
+                    /* post_chip_enable_wait_ns = */ 20, /* pre_chip_disable_wait_ns = */ 10,
+                    /* reset_pulse_width_ms = */ 100,    /* SSD1306: 3 us */
+                    /* post_reset_wait_ms = */ 100, /* far east OLEDs need much longer setup time */
+                    /* sda_setup_time_ns = */ 50,        /* SSD1306: 15ns, but cycle time is 100ns, so use 100/2 */
+                    /* sck_pulse_width_ns = */ 50,    /* SSD1306: 20ns, but cycle time is 100ns, so use 100/2, AVR: below 70: 8 MHz, >= 70 --> 4MHz clock */
+                    /* sck_clock_hz = */ 4000000UL,    /* since Arduino 1.6.0, the SPI bus speed in Hz. Should be  1000000000/sck_pulse_width_ns */
+                    /* spi_mode = */ 0,        /* active high, rising edge */
+                    /* i2c_bus_clock_100kHz = */ 4,
+                    /* data_setup_time_ns = */ 40,
+                    /* write_pulse_width_ns = */ 150,    /* SSD1306: cycle time is 300ns, so use 300/2 = 150 */
+                    /* tile_width = */ 16,
+                    /* tile_height = */ 8,
+                    /* default_x_offset = */ 0,
+                    /* flipmode_x_offset = */ 0,
+                    /* pixel_width = */ 128,
+                    /* pixel_height = */ 64
+            };
 
     static encoder_model encoders[5];
-
+    static std::map<uint16_t, std::vector<uint8_t >> _openglToKeyPadMap;
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-
+        if (_openglToKeyPadMap.count(key) == 1) {
+            std::vector<uint8_t> &mapping = _openglToKeyPadMap[key];
+            switch (action) {
+                case GLFW_RELEASE:
+                    if (_keypad) {
+                        _keypad->unpressKey(mapping[0], mapping[1]);
+                    }
+                    break;
+                case GLFW_PRESS:
+                    if (_keypad) {
+                        _keypad->pressKey(mapping[0], mapping[1]);
+                    }
+                    break;
+            }
+        }
         if (action == GLFW_RELEASE) {
             bool isEncoderChange = false;
             bool isEncoderIncreased = false;
             uint8_t encoderIndex = 0;
+
             switch(key) {
-                case GLFW_KEY_SPACE: break;
                 case GLFW_KEY_1:
                 case GLFW_KEY_3:
                 case GLFW_KEY_5:
@@ -585,16 +598,43 @@ public:
 private:
     static std::string _textCharacterInput;
     static Wire_T *_wire;
+    static Keypad_T *_keypad;
 
 };
-template <typename Wire_T> encoder_model U8G2_128X64_OPENGL<Wire_T>::encoders[5] = {
+template <typename Wire_T, typename Keypad_T> encoder_model U8G2_128X64_OPENGL<Wire_T,Keypad_T>::encoders[5] = {
         {0x36,0,0,0,0,0},
         {0x37,0,0,0,0,0},
         {0x38,0,0,0,0,0},
         {0x39,0,0,0,0,0},
         {0x40,0,0,0,0,0}};
 
-template <typename Wire_T> Wire_T *U8G2_128X64_OPENGL<Wire_T>::_wire;
-template <typename Wire_T> std::string U8G2_128X64_OPENGL<Wire_T>::_textCharacterInput;
+template <typename Wire_T, typename Keypad_T> Wire_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_wire;
+template <typename Wire_T, typename Keypad_T> Keypad_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_keypad;
 
+template <typename Wire_T, typename Keypad_T> std::string U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_textCharacterInput;
+
+template <typename Wire_T, typename Keypad_T> std::map<uint16_t, std::vector<uint8_t>> U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_openglToKeyPadMap = {
+        { GLFW_KEY_ESCAPE,  {3, 1}}, // 'j' ESCAPE_BTN_CHAR
+        { GLFW_KEY_SPACE,   {2, 1}}, // 'i' SELECT_BTN_CHAR
+        { GLFW_KEY_ENTER,   {5, 5}}, // '0' SOUND_BTN_CHAR
+        { GLFW_KEY_X,       {5, 4}}, // '4' TEMPO_BTN_CHAR
+        { GLFW_KEY_C,       {5, 3}},     // 'x' COPY_BTN_CHAR
+        { GLFW_KEY_Z,       {5, 2}},    // 'r' FUNCTION_BTN_CHAR
+        { GLFW_KEY_V,       {2, 0}},    // 'c' TRACK_BTN_CHAR
+        { GLFW_KEY_B,       {1, 0}},    // 'b' PATTERN_BTN_CHAR
+        { GLFW_KEY_N,       {0, 0}},    // 'a' PERFORM_BTN_CHAR
+};
+
+/*
+// Buttons
+#define PERFORM_BTN_CHAR 'a'
+#define PATTERN_BTN_CHAR 'b'
+#define TRACK_BTN_CHAR 'c'
+#define FUNCTION_BTN_CHAR 'r'
+#define COPY_BTN_CHAR 'x'
+#define TEMPO_BTN_CHAR '4'
+#define SOUND_BTN_CHAR '0'
+#define SELECT_BTN_CHAR 'i' // reverse when silkscreen is corrected
+#define ESCAPE_BTN_CHAR 'j' // reverse when silkscreen is corrected
+ * */
 #endif //TEENSY_U8G2_OPENGL_H
