@@ -329,17 +329,18 @@ public:
     uint8_t rloop;
 };
 
-template<typename Wire_T, typename Keypad_T>
+template<typename Wire_T, typename Keypad_T, typename CapTouch_T>
 class U8G2_128X64_OPENGL : public U8G2 {
 public:
 
-    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255, Wire_T *wire = nullptr, Keypad_T *keypad = nullptr) :
+    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255, Wire_T *wire = nullptr, Keypad_T *keypad = nullptr, CapTouch_T *touch = nullptr) :
         U8G2()
     {
         u8g2_Setup_opengl_128x64(&u8g2, rotation, u8x8_byte_arduino_4wire_sw_spi, u8x8_gpio_and_delay_arduino);
         //printf("u8g2 wire1: %lx\n", (unsigned long)wire);
         _wire = wire;
         _keypad = keypad;
+        _touch = touch;
         if (_wire) {
             _wire->onDataSentToDevice = dataSentToDevice;
            /* if (_wire->onDataSentToDevice) {
@@ -495,6 +496,7 @@ public:
 
     static encoder_model encoders[5];
     static std::map<uint16_t, std::vector<uint8_t >> _openglToKeyPadMap;
+    static std::map<uint16_t, uint8_t> _openglToTouchMap;
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (_openglToKeyPadMap.count(key) == 1) {
             std::vector<uint8_t> &mapping = _openglToKeyPadMap[key];
@@ -511,6 +513,23 @@ public:
                     break;
             }
         }
+
+        if (_openglToTouchMap.count(key) == 1) {
+            uint8_t touchKey = _openglToTouchMap[key];
+            switch (action) {
+                case GLFW_RELEASE:
+                    if (_touch) {
+                        _touch->setTouched(touchKey, false);
+                    }
+                    break;
+                case GLFW_PRESS:
+                    if (_touch) {
+                        _touch->setTouched(touchKey, true);
+                        break;
+                    }
+            }
+        }
+
         if (action == GLFW_RELEASE) {
             bool isEncoderChange = false;
             bool isEncoderIncreased = false;
@@ -599,21 +618,23 @@ private:
     static std::string _textCharacterInput;
     static Wire_T *_wire;
     static Keypad_T *_keypad;
+    static CapTouch_T *_touch;
 
 };
-template <typename Wire_T, typename Keypad_T> encoder_model U8G2_128X64_OPENGL<Wire_T,Keypad_T>::encoders[5] = {
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> encoder_model U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::encoders[5] = {
         {0x36,0,0,0,0,0},
         {0x37,0,0,0,0,0},
         {0x38,0,0,0,0,0},
         {0x39,0,0,0,0,0},
         {0x40,0,0,0,0,0}};
 
-template <typename Wire_T, typename Keypad_T> Wire_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_wire;
-template <typename Wire_T, typename Keypad_T> Keypad_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_keypad;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Wire_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_wire;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Keypad_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_keypad;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> CapTouch_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_touch;
 
-template <typename Wire_T, typename Keypad_T> std::string U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_textCharacterInput;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::string U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_textCharacterInput;
 
-template <typename Wire_T, typename Keypad_T> std::map<uint16_t, std::vector<uint8_t>> U8G2_128X64_OPENGL<Wire_T,Keypad_T>::_openglToKeyPadMap = {
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint16_t, std::vector<uint8_t>> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToKeyPadMap = {
         { GLFW_KEY_ESCAPE,  {3, 1}}, // 'j' ESCAPE_BTN_CHAR
         { GLFW_KEY_SPACE,   {2, 1}}, // 'i' SELECT_BTN_CHAR
         { GLFW_KEY_ENTER,   {5, 5}}, // '0' SOUND_BTN_CHAR
@@ -625,16 +646,20 @@ template <typename Wire_T, typename Keypad_T> std::map<uint16_t, std::vector<uin
         { GLFW_KEY_N,       {0, 0}},    // 'a' PERFORM_BTN_CHAR
 };
 
-/*
-// Buttons
-#define PERFORM_BTN_CHAR 'a'
-#define PATTERN_BTN_CHAR 'b'
-#define TRACK_BTN_CHAR 'c'
-#define FUNCTION_BTN_CHAR 'r'
-#define COPY_BTN_CHAR 'x'
-#define TEMPO_BTN_CHAR '4'
-#define SOUND_BTN_CHAR '0'
-#define SELECT_BTN_CHAR 'i' // reverse when silkscreen is corrected
-#define ESCAPE_BTN_CHAR 'j' // reverse when silkscreen is corrected
- * */
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToTouchMap = {
+        { GLFW_KEY_P,               13},     // 'c'
+        { GLFW_KEY_MINUS,           12},     // 'c#'
+        { GLFW_KEY_LEFT_BRACKET,    11},     // 'd'
+        { GLFW_KEY_EQUAL,           10},     // 'd#'
+        { GLFW_KEY_RIGHT_BRACKET,   9},     // 'e'
+        { GLFW_KEY_M,               8},     // 'f'
+        { GLFW_KEY_K,               7},     // 'f#'
+        { GLFW_KEY_COMMA,           6},     // 'g'
+        { GLFW_KEY_L,               5},     // 'g#'
+        { GLFW_KEY_PERIOD,          4},     // 'a'
+        { GLFW_KEY_SEMICOLON,       3},    // 'a#'
+        { GLFW_KEY_SLASH,           2},    // 'b'
+        { GLFW_KEY_RIGHT_SHIFT,     1},    // 'c2'
+};
+
 #endif //TEENSY_U8G2_OPENGL_H
