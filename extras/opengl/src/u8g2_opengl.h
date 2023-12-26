@@ -373,6 +373,23 @@ public:
                     selectedEncoder->rmax  = (int16_t)((*queue)[7] << 8 | (*queue)[6]);
                     selectedEncoder->rstep = (int16_t)((*queue)[9] << 8 | (*queue)[8]);
                 }
+
+                if (_wire) {
+                    _wire->addRequestFromCallback(address, [] (uint8_t address, uint16_t count) -> int16_t {
+                        for (auto &index: encoders) {
+                            if (index.addr == address) {
+                                auto lsb = (int8_t)(index.rval & 0x00FF);
+                                auto msb = (int8_t)(index.rval >> 8);
+                                _wire->addDeviceDataResponse(address, lsb);
+                                _wire->addDeviceDataResponse(address, msb );
+
+                                return 2;
+                            }
+                        }
+                        return 0;
+                    });
+                }
+
                 queue->clear();
             }
         }
@@ -567,17 +584,19 @@ public:
             }
 
             if (isEncoderChange){
-                Serial.printf("[encoder inc %d] ", encoderIndex);
+                //Serial.printf("[encoder inc %d] ", encoderIndex);
                 encoder_model &encoder = encoders[encoderIndex];
                 if (isEncoderIncreased && encoder.rval < encoder.rmax - encoder.rstep )
                     encoder.rval+=encoder.rstep;
                 else if (encoder.rval > encoder.rmin + encoder.rstep)
                     encoder.rval-=encoder.rstep;
-                Serial.printf("value: %d\n", encoder.rval);
+                //Serial.printf("value: %d\n", encoder.rval);
+                /*
                 if (_wire != nullptr) {
                     _wire->addDeviceDataResponse(encoder.addr, encoder.rval & 0x00FF );
                     _wire->addDeviceDataResponse(encoder.addr, encoder.rval >> 8);
                 }
+                 */
             }
         } else if (action == GLFW_PRESS)
         {
@@ -644,6 +663,26 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint
         { GLFW_KEY_V,       {2, 0}},    // 'c' TRACK_BTN_CHAR
         { GLFW_KEY_B,       {1, 0}},    // 'b' PATTERN_BTN_CHAR
         { GLFW_KEY_N,       {0, 0}},    // 'a' PERFORM_BTN_CHAR
+
+        { GLFW_KEY_Q,       {2, 0}},    // 'm' step 1 / 16
+        { GLFW_KEY_W,       {2, 1}},    // 'n' step 2 / 16
+        { GLFW_KEY_E,       {2, 2}},    // 'o' step 3 / 16
+        { GLFW_KEY_R,       {2, 3}},    // 'p' step 4 / 16
+
+        { GLFW_KEY_T,       {3, 0}},    // 's' step 5 / 16
+        { GLFW_KEY_Y,       {3, 1}},    // 't' step 6 / 16
+        { GLFW_KEY_U,       {3, 2}},    // 'u' step 7 / 16
+        { GLFW_KEY_I,       {3, 3}},    // 'v' step 8 / 16
+
+        { GLFW_KEY_A,       {4, 0}},    // 'y' step 9 / 16
+        { GLFW_KEY_S,       {4, 1}},    // 'z' step 10 / 16
+        { GLFW_KEY_D,       {4, 2}},    // '1' step 11 / 16
+        { GLFW_KEY_F,       {4, 3}},    // '2' step 12 / 16
+
+        { GLFW_KEY_G,       {5, 0}},    // '5' step 13 / 16
+        { GLFW_KEY_H,       {5, 1}},    // '6' step 14 / 16
+        { GLFW_KEY_J,       {5, 2}},    // '7' step 15 / 16
+        { GLFW_KEY_K,       {5, 3}},    // '8' step 16 / 16
 };
 
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToTouchMap = {

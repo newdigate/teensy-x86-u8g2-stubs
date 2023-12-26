@@ -2,6 +2,8 @@
 #include "u8g2_opengl_main.h"
 #include "Wire.h"
 #include "Keypad.h"
+#include <Adafruit_MPR121.h>
+Adafruit_MPR121 mpr121_a = Adafruit_MPR121();
 
 const byte ROWS = 6;
 const byte COLS = 6;
@@ -20,7 +22,7 @@ byte colPins[COLS] = {2, 9, 12, 41, 40, 39}; //connect to the column pinouts of 
 
 Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
-U8G2_128X64_OPENGL<TwoWire, Keypad> u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd);
+U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
 
 void encoder_set(int addr, int16_t rmin, int16_t rmax, int16_t rstep, int16_t rval, uint8_t rloop) {
     Wire1.beginTransmission(addr);
@@ -36,9 +38,38 @@ int encoder_addrs[5] = {
         0x36, 0x37, 0x38, 0x39, 0x40
 };
 
+int old_encoderValues[5] = {0,0,0,0,0};
+
 void initEncoders() {
     for (int i=0; i<5; i++) {
-        encoder_set(encoder_addrs[i], -3000, 3000, 1, 0, 0);
+        encoder_set(encoder_addrs[i], -3000, 3000, 1, -3000, 0);
+    }
+}
+
+int16_t getEncoder(int address)
+{
+    std::cout << "getEncoder: " << address;
+    Wire1.requestFrom(address, 2);
+
+    int8_t lsbyte = (int8_t)Wire1.read();
+    std::cout << " lsb: " << lsbyte;
+
+    int8_t msbyte = (int8_t)Wire1.read();
+    std::cout << " msb: " << msbyte;
+
+    int16_t result =  lsbyte & 0x00FF | msbyte << 8;
+    std::cout << std::endl;
+    return result;
+}
+
+void updateEncoders() {
+    for (int i=0;i<5;i++){
+        if (i > 0) break;
+        int16_t encoderValue = getEncoder(encoder_addrs[i]);
+        if (encoderValue != old_encoderValues[i]) {
+            Serial.printf("Encoder %d changed from %d to %d\n", i, old_encoderValues[i], encoderValue);
+            old_encoderValues[i] = encoderValue;
+        }
     }
 }
 
@@ -79,7 +110,9 @@ void loop(void) {
             }
         }
     }
-    //    delay(1000);
+
+    updateEncoders();
+       delay(1000);
 }
 
 int st7735_main(int argc, char** argv) {

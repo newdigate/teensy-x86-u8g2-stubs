@@ -15,6 +15,9 @@ include_directories(${teensy_x86_u8g2_stubs_INCLUDE_DIR})
 find_package(teensy_x86_keypad_stubs)
 include_directories(${teensy_x86_keypad_stubs_INCLUDE_DIR})
 
+find_package(teensy_x86_mpr121_stubs)
+include_directories(${teensy_x86_mpr121_stubs_INCLUDE_DIR})
+
 include_directories(../../src)
 
 add_definitions(-fms-extensions)
@@ -27,7 +30,7 @@ target_link_libraries(basic ${teensy_x86_u8g2_stubs_LIBS})
 target_link_libraries(basic ${teensy_x86_u8g2_stubs_opengl_LIBS})
 target_link_libraries(basic ${teensy_x86_twowire_stubs_LIBS})
 target_link_libraries(basic ${teensy_x86_keypad_stubs_LIBS})
-
+target_link_libraries(basic ${teensy_x86_mpr121_stubs_LIBS})
 include(../../opengl.cmake.in)
 target_link_libraries(basic ${LIBS})
 
