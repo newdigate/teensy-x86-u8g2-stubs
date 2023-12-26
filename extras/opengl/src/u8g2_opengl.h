@@ -333,7 +333,11 @@ template<typename Wire_T, typename Keypad_T, typename CapTouch_T>
 class U8G2_128X64_OPENGL : public U8G2 {
 public:
 
-    U8G2_128X64_OPENGL(const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255, Wire_T *wire = nullptr, Keypad_T *keypad = nullptr, CapTouch_T *touch = nullptr) :
+    U8G2_128X64_OPENGL(std::function<void( int pin, int value)> setFastTouchFn,
+                       const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255,
+                       Wire_T *wire = nullptr,
+                       Keypad_T *keypad = nullptr,
+                       CapTouch_T *touch = nullptr) :
         U8G2()
     {
         u8g2_Setup_opengl_128x64(&u8g2, rotation, u8x8_byte_arduino_4wire_sw_spi, u8x8_gpio_and_delay_arduino);
@@ -341,6 +345,7 @@ public:
         _wire = wire;
         _keypad = keypad;
         _touch = touch;
+        _setFastTouchFn = setFastTouchFn;
         if (_wire) {
             _wire->onDataSentToDevice = dataSentToDevice;
            /* if (_wire->onDataSentToDevice) {
@@ -514,6 +519,9 @@ public:
     static encoder_model encoders[5];
     static std::map<uint16_t, std::vector<uint8_t >> _openglToKeyPadMap;
     static std::map<uint16_t, uint8_t> _openglToTouchMap;
+    static std::function<void( int pin, int value)> _setFastTouchFn;
+    static std::map<uint16_t, uint8_t> _fastTouchPinMap;
+
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (_openglToKeyPadMap.count(key) == 1) {
             std::vector<uint8_t> &mapping = _openglToKeyPadMap[key];
@@ -543,6 +551,21 @@ public:
                     if (_touch) {
                         _touch->setTouched(touchKey, true);
                         break;
+                    }
+            }
+        }
+
+        if (_fastTouchPinMap.count(key) == 1) {
+            uint8_t touchPin = _fastTouchPinMap[key];
+            switch (action) {
+                case GLFW_RELEASE:
+                    if (_setFastTouchFn) {
+                        _setFastTouchFn(touchPin, 0);
+                    }
+                    break;
+                case GLFW_PRESS:
+                    if (_setFastTouchFn) {
+                        _setFastTouchFn(touchPin, 0xFF);
                     }
             }
         }
@@ -652,6 +675,7 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Keypad_T *U8G
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> CapTouch_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_touch;
 
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::string U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_textCharacterInput;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::function<void( int pin, int value)> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_setFastTouchFn;
 
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint16_t, std::vector<uint8_t>> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToKeyPadMap = {
         { GLFW_KEY_ESCAPE,  {3, 1}}, // 'j' ESCAPE_BTN_CHAR
@@ -684,8 +708,12 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint
         { GLFW_KEY_J,       {5, 2}},    // '7' step 15 / 16
         { GLFW_KEY_K,       {5, 3}},    // '8' step 16 / 16
 };
-
-template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToTouchMap = {
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T>
+std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_fastTouchPinMap ={
+        { GLFW_KEY_GRAVE_ACCENT, 32} // "`"
+};
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T>
+std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToTouchMap = {
         { GLFW_KEY_P,               13},     // 'c'
         { GLFW_KEY_MINUS,           12},     // 'c#'
         { GLFW_KEY_LEFT_BRACKET,    11},     // 'd'

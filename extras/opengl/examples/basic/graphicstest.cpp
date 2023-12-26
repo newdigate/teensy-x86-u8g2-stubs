@@ -21,8 +21,11 @@ byte rowPins[ROWS] = {38, 37, 36, 35, 34, 33}; //connect to the row pinouts of t
 byte colPins[COLS] = {2, 9, 12, 41, 40, 39}; //connect to the column pinouts of the keypad
 
 Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
+void setFastTouch( int pin, int value) {
 
-U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
+}
+
+U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(&setFastTouch, U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
 
 void encoder_set(int addr, int16_t rmin, int16_t rmax, int16_t rstep, int16_t rval, uint8_t rloop) {
     Wire1.beginTransmission(addr);
