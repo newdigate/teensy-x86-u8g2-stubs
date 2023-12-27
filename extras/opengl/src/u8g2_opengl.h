@@ -18,6 +18,11 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #endif
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 static const char* vertexShaderCode = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
@@ -63,9 +68,11 @@ public:
     // vao and vbo handle
     static unsigned int VBO, VAO, EBO;
     static inline bool _drawFrame = false;
+    static int16_t *_encoderValue1;
 
-    static bool InitOpenGL(int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
+    static bool InitOpenGL(int16_t *encoderValue1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
         _frameSize = frameSize;
+        _encoderValue1 = encoderValue1;
         _drawFrame = drawFrame;
 /* Initialize the library */
         if (!glfwInit()) {
@@ -107,6 +114,19 @@ public:
 
         std::cout << "GL Version: " << (char *) glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
+        //ImGui::StyleColorsLight();
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplGlfw_InitForOpenGL(window, true);
+        ImGui_ImplOpenGL3_Init( "#version 150");
 
         int length;
 
@@ -249,6 +269,30 @@ public:
         //lastUpdate = microsStart;
         glfwPollEvents();
 
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+            int encoder1int = *_encoderValue1;
+
+            ImGui::Begin("XR1-emulator!");                          // Create a window called "Hello, world!" and append into it.
+
+            if (ImGui::SliderInt("encoder 0", &encoder1int, -3000, 3000)){
+                *_encoderValue1 = encoder1int;
+            };            // Edit 1 float using a slider from 0.0f to 1.0f
+
+            if (ImGui::Button("Button")) {          // Buttons return true when clicked (most widgets return true when edited/activated)
+                counter++;
+            }
+            ImGui::SameLine();
+            ImGui::Text("counter = %d", counter);
+
+            ImGui::End();
+        }
+        ImGui::Render();
         // use the shader program
         glUseProgram(shader_program);
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -265,6 +309,7 @@ public:
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -318,6 +363,7 @@ unsigned int st7735_opengl_window::VBO;
 unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
 int16_t st7735_opengl_window::_frameSize = 0;
+int16_t *st7735_opengl_window::_encoderValue1;
 
 struct encoder_model {
 public:
@@ -354,7 +400,7 @@ public:
             */
         }
 
-        if (st7735_opengl_window::InitOpenGL(0, false, key_callback, character_callback))
+        if (st7735_opengl_window::InitOpenGL(&(encoders[0].rval), 0, false, key_callback, character_callback))
             return;
     }
 
@@ -523,50 +569,56 @@ public:
     static std::map<uint16_t, uint8_t> _fastTouchPinMap;
 
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-        if (_openglToKeyPadMap.count(key) == 1) {
-            std::vector<uint8_t> &mapping = _openglToKeyPadMap[key];
-            switch (action) {
-                case GLFW_RELEASE:
-                    if (_keypad) {
-                        _keypad->unpressKey(mapping[0], mapping[1]);
-                    }
-                    break;
-                case GLFW_PRESS:
-                    if (_keypad) {
-                        _keypad->pressKey(mapping[0], mapping[1]);
-                    }
-                    break;
-            }
-        }
 
-        if (_openglToTouchMap.count(key) == 1) {
-            uint8_t touchKey = _openglToTouchMap[key];
-            switch (action) {
-                case GLFW_RELEASE:
-                    if (_touch) {
-                        _touch->setTouched(touchKey, false);
-                    }
-                    break;
-                case GLFW_PRESS:
-                    if (_touch) {
-                        _touch->setTouched(touchKey, true);
+        if (key == 340) return ; //SHIFT
+        if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT) {
+            // SHIFT is pressed
+            if (_openglToTouchMap.count(key) == 1) {
+                uint8_t touchKey = _openglToTouchMap[key];
+                switch (action) {
+                    case GLFW_RELEASE:
+                        if (_touch) {
+                            _touch->setTouched(touchKey, false);
+                        }
                         break;
-                    }
+                    case GLFW_PRESS:
+                        if (_touch) {
+                            _touch->setTouched(touchKey, true);
+                            break;
+                        }
+                }
             }
-        }
 
-        if (_fastTouchPinMap.count(key) == 1) {
-            uint8_t touchPin = _fastTouchPinMap[key];
-            switch (action) {
-                case GLFW_RELEASE:
-                    if (_setFastTouchFn) {
-                        _setFastTouchFn(touchPin, 0);
-                    }
-                    break;
-                case GLFW_PRESS:
-                    if (_setFastTouchFn) {
-                        _setFastTouchFn(touchPin, 0xFF);
-                    }
+            if (_fastTouchPinMap.count(key) == 1) {
+                uint8_t touchPin = _fastTouchPinMap[key];
+                switch (action) {
+                    case GLFW_RELEASE:
+                        if (_setFastTouchFn) {
+                            _setFastTouchFn(touchPin, 0);
+                        }
+                        break;
+                    case GLFW_PRESS:
+                        if (_setFastTouchFn) {
+                            _setFastTouchFn(touchPin, 0xFF);
+                        }
+                }
+            }
+        } else {
+            // SHIFT is not pressed
+            if (_openglToKeyPadMap.count(key) == 1) {
+                std::vector<uint8_t> &mapping = _openglToKeyPadMap[key];
+                switch (action) {
+                    case GLFW_RELEASE:
+                        if (_keypad) {
+                            _keypad->unpressKey(mapping[0], mapping[1]);
+                        }
+                        break;
+                    case GLFW_PRESS:
+                        if (_keypad) {
+                            _keypad->pressKey(mapping[0], mapping[1]);
+                        }
+                        break;
+                }
             }
         }
 
@@ -688,10 +740,16 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint
         { GLFW_KEY_B,       {1, 0}},    // 'b' PATTERN_BTN_CHAR
         { GLFW_KEY_N,       {0, 0}},    // 'a' PERFORM_BTN_CHAR
 
-        { GLFW_KEY_Q,       {2, 0}},    // 'm' step 1 / 16
-        { GLFW_KEY_W,       {2, 1}},    // 'n' step 2 / 16
+        { GLFW_KEY_GRAVE_ACCENT,{1, 1}},   // 'h' MOD_D_BTN_CHAR - "`"
+        { GLFW_KEY_COMMA,       {4, 2}},   // 'q' START_BTN_CHAR 'q'
+        { GLFW_KEY_PERIOD,      {4, 3}},   // 'w' STOP_BTN_CHAR 'w'
+        { GLFW_KEY_SEMICOLON,   {4, 5}},   // '9' PAGE_LEFT_BTN_CHAR '9'
+        { GLFW_KEY_APOSTROPHE,  {4, 4}},   // '3' PAGE_RIGHT_BTN_CHAR '3'
+
+        { GLFW_KEY_Q,       {0, 2}},    // 'm' step 1 / 16
+        { GLFW_KEY_W,       {1, 2}},    // 'n' step 2 / 16
         { GLFW_KEY_E,       {2, 2}},    // 'o' step 3 / 16
-        { GLFW_KEY_R,       {2, 3}},    // 'p' step 4 / 16
+        { GLFW_KEY_R,       {3, 2}},    // 'p' step 4 / 16
 
         { GLFW_KEY_T,       {3, 0}},    // 's' step 5 / 16
         { GLFW_KEY_Y,       {3, 1}},    // 't' step 6 / 16
@@ -710,23 +768,22 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint
 };
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T>
 std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_fastTouchPinMap ={
-        { GLFW_KEY_GRAVE_ACCENT, 32} // "`"
+        { GLFW_KEY_A, 32} // "a" -- pin 32, possible 12, c0
 };
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T>
 std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToTouchMap = {
-        { GLFW_KEY_P,               13},     // 'c'
-        { GLFW_KEY_MINUS,           12},     // 'c#'
-        { GLFW_KEY_LEFT_BRACKET,    11},     // 'd'
-        { GLFW_KEY_EQUAL,           10},     // 'd#'
-        { GLFW_KEY_RIGHT_BRACKET,   9},     // 'e'
-        { GLFW_KEY_M,               8},     // 'f'
-        { GLFW_KEY_K,               7},     // 'f#'
-        { GLFW_KEY_COMMA,           6},     // 'g'
-        { GLFW_KEY_L,               5},     // 'g#'
-        { GLFW_KEY_PERIOD,          4},     // 'a'
-        { GLFW_KEY_SEMICOLON,       3},    // 'a#'
-        { GLFW_KEY_SLASH,           2},    // 'b'
-        { GLFW_KEY_RIGHT_SHIFT,     1},    // 'c2'
+        { GLFW_KEY_W,   11},     // 'c#'
+        { GLFW_KEY_S,   10},     // 'd'
+        { GLFW_KEY_E,   9},     // 'd#'
+        { GLFW_KEY_D,   8},     // 'e'
+        { GLFW_KEY_F,   7},     // 'f'
+        { GLFW_KEY_T,   6},     // 'f#'
+        { GLFW_KEY_G,   5},     // 'g'
+        { GLFW_KEY_Y,   4},     // 'g#'
+        { GLFW_KEY_H,   3},     // 'a'
+        { GLFW_KEY_U,   2},     // 'a#'
+        { GLFW_KEY_J,   1},     // 'b'
+        { GLFW_KEY_K,   0},     // 'c1' ?
 };
 
 #endif //TEENSY_U8G2_OPENGL_H

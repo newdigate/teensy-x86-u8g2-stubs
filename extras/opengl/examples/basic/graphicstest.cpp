@@ -22,7 +22,7 @@ byte colPins[COLS] = {2, 9, 12, 41, 40, 39}; //connect to the column pinouts of 
 
 Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 void setFastTouch( int pin, int value) {
-
+    std::cout << "Fast Touch: pin " << pin << " - value " << value << std::endl;
 }
 
 U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(&setFastTouch, U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
@@ -51,17 +51,10 @@ void initEncoders() {
 
 int16_t getEncoder(int address)
 {
-    std::cout << "getEncoder: " << address;
     Wire1.requestFrom(address, 2);
-
     int8_t lsbyte = (int8_t)Wire1.read();
-    std::cout << " lsb: " << lsbyte;
-
     int8_t msbyte = (int8_t)Wire1.read();
-    std::cout << " msb: " << msbyte;
-
     int16_t result =  lsbyte & 0x00FF | msbyte << 8;
-    std::cout << std::endl;
     return result;
 }
 
@@ -104,11 +97,9 @@ void loop(void) {
             if (kpd.key[i].stateChanged)   // Only find keys that have changed state.
             {
                 switch (kpd.key[i].kstate) {  // Report active key state : IDLE, PRESSED, HOLD, or RELEASED
-                    case PRESSED: {
-                        Serial.print("button pressed: ");
-                        Serial.println(kpd.key[i].kchar);
+                    case PRESSED:
+                        std::cout << "button pressed: " << kpd.key[i].kchar << " " <<  (long)kpd.key[i].kchar << std::endl;
                         break;
-                    }
                 }
             }
         }

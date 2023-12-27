@@ -11,6 +11,9 @@ include_directories(${teensy_x86_stubs_INCLUDE_DIR})
 find_package(teensy_x86_u8g2_stubs)
 include_directories(${teensy_x86_u8g2_stubs_INCLUDE_DIR})
 
+find_package(imgui REQUIRED)
+find_path(STB_INCLUDE_DIRS "stb.h")
+
 include(../opengl.cmake.in)
 
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/teensy_x86_u8g2_stubs_opengl/)
@@ -20,7 +23,10 @@ set(HEADER_FILES
         u8g2_opengl.h
         u8g2_opengl_main.h)
 
+include_directories(../imgui)
+
 add_library(teensy_x86_u8g2_stubs_opengl INTERFACE ${HEADER_FILES})
+target_include_directories(teensy_x86_u8g2_stubs_opengl ${STB_INCLUDE_DIRS})
 
 set_target_properties(teensy_x86_u8g2_stubs_opengl PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
 
