@@ -23,6 +23,7 @@ include_directories(${teensy_x86_mpr121_stubs_INCLUDE_DIR})
 
 include_directories(../../src)
 include_directories(../../imgui)
+include_directories(../../../xr1)
 
 add_definitions(-fms-extensions)
 add_definitions(-DArduino=146)

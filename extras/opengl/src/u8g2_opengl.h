@@ -23,6 +23,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#include "XR1Model.h"
+
 static const char* vertexShaderCode = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
@@ -68,11 +70,13 @@ public:
     // vao and vbo handle
     static unsigned int VBO, VAO, EBO;
     static inline bool _drawFrame = false;
-    static int16_t *_encoderValue1;
+    static XR1Model *_xr1;
+    static std::function<void(uint8_t, uint8_t, bool)> _toggleKeypadFn;
 
-    static bool InitOpenGL(int16_t *encoderValue1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
+    static bool InitOpenGL(std::function<void(uint8_t, uint8_t, bool)> toggleKeypadFn, XR1Model *xr1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
+        _toggleKeypadFn = toggleKeypadFn;
         _frameSize = frameSize;
-        _encoderValue1 = encoderValue1;
+        _xr1 = xr1;
         _drawFrame = drawFrame;
 /* Initialize the library */
         if (!glfwInit()) {
@@ -276,17 +280,55 @@ public:
         {
             static float f = 0.0f;
             static int counter = 0;
-            int encoder1int = *_encoderValue1;
+            int encoderValues[5] = {
+                    _xr1->encoders[0].rval,
+                    _xr1->encoders[1].rval,
+                    _xr1->encoders[2].rval,
+                    _xr1->encoders[3].rval,
+                    _xr1->encoders[4].rval,
+            };
 
             ImGui::Begin("XR1-emulator!");                          // Create a window called "Hello, world!" and append into it.
 
-            if (ImGui::SliderInt("encoder 0", &encoder1int, -3000, 3000)){
-                *_encoderValue1 = encoder1int;
-            };            // Edit 1 float using a slider from 0.0f to 1.0f
-
-            if (ImGui::Button("Button")) {          // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
+            for (int i=0; i<5; i++) {
+                if (ImGui::SliderInt(std::string("encoder " + std::to_string(i)).c_str() , &encoderValues[i], _xr1->encoders[i].rmin, _xr1->encoders[i].rmax)){
+                    _xr1->encoders[i].rval = encoderValues[i];
+                };
             }
+
+            for (int i=0; i<6; i++) {
+                for (int j=0; j<6; j++) {
+                    bool pressed = _xr1->keysPressed[i][j];
+                    std::string id = std::string("B" + std::to_string(i) + std::to_string(j));
+                    if (pressed) {
+                        static float b = 1.0f; //  test whatever color you need from imgui_demo.cpp e.g.
+                        static float c = 0.5f; //
+                        static int i = 3;
+                        ImGui::PushID(id.c_str());
+                        ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(i/7.0f, b, b));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(i/7.0f, b, b));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(i/7.0f, c, c));
+                    }
+                    if (j > 0) ImGui::SameLine();
+                    if (ImGui::Button(id.c_str())) {          // Buttons return true when clicked (most widgets return true when edited/activated)
+                        if (!pressed) {
+                            if (_toggleKeypadFn)
+                                _toggleKeypadFn(i,j, true);
+                            _xr1->keysPressed[i][j] = true;
+                            counter++;
+                        } else {
+                            if (_toggleKeypadFn)
+                                _toggleKeypadFn(i,j, false);
+                            _xr1->keysPressed[i][j] = false;
+                        }
+                    }
+                    if (pressed) {
+                        ImGui::PopStyleColor(3);
+                        ImGui::PopID();
+                    }
+                }
+            }
+
             ImGui::SameLine();
             ImGui::Text("counter = %d", counter);
 
@@ -363,23 +405,15 @@ unsigned int st7735_opengl_window::VBO;
 unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
 int16_t st7735_opengl_window::_frameSize = 0;
-int16_t *st7735_opengl_window::_encoderValue1;
+XR1Model *st7735_opengl_window::_xr1 = nullptr;
+std::function<void(uint8_t, uint8_t, bool)> st7735_opengl_window::_toggleKeypadFn;
 
-struct encoder_model {
-public:
-    int addr;
-    int16_t rmin;
-    int16_t rmax;
-    int16_t rstep;
-    int16_t rval;
-    uint8_t rloop;
-};
 
 template<typename Wire_T, typename Keypad_T, typename CapTouch_T>
 class U8G2_128X64_OPENGL : public U8G2 {
 public:
 
-    U8G2_128X64_OPENGL(std::function<void( int pin, int value)> setFastTouchFn,
+    U8G2_128X64_OPENGL(XR1Model *xr1, std::function<void( int pin, int value)> setFastTouchFn,
                        const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255,
                        Wire_T *wire = nullptr,
                        Keypad_T *keypad = nullptr,
@@ -388,6 +422,7 @@ public:
     {
         u8g2_Setup_opengl_128x64(&u8g2, rotation, u8x8_byte_arduino_4wire_sw_spi, u8x8_gpio_and_delay_arduino);
         //printf("u8g2 wire1: %lx\n", (unsigned long)wire);
+        _xr1 = xr1;
         _wire = wire;
         _keypad = keypad;
         _touch = touch;
@@ -400,8 +435,19 @@ public:
             */
         }
 
-        if (st7735_opengl_window::InitOpenGL(&(encoders[0].rval), 0, false, key_callback, character_callback))
+        if (st7735_opengl_window::InitOpenGL(
+                openGlKeypadButtonPress,
+                //[] (uint8_t i, uint8_t j, bool value) {},
+                xr1, 0, false, key_callback, character_callback))
             return;
+    }
+
+    static void openGlKeypadButtonPress(uint8_t i, uint8_t j, bool value) {
+        if (value) {
+            _keypad->pressKey(i, j);
+        } else {
+            _keypad->unpressKey(i, j);
+        }
     }
 
     virtual ~U8G2_128X64_OPENGL() = default;
@@ -411,7 +457,7 @@ public:
         if (queue) {
             if (queue->size() == 10) {
                 encoder_model *selectedEncoder = nullptr;
-                for (auto &index: encoders) {
+                for (auto &index: _xr1->encoders) {
                     if (index.addr == address) {
                         selectedEncoder = &index;
                         break;
@@ -427,7 +473,7 @@ public:
 
                 if (_wire) {
                     _wire->addRequestFromCallback(address, [] (uint8_t address, uint16_t count) -> int16_t {
-                        for (auto &index: encoders) {
+                        for (auto &index: _xr1->encoders) {
                             if (index.addr == address) {
                                 auto lsb = (int8_t)(index.rval & 0x00FF);
                                 auto msb = (int8_t)(index.rval >> 8);
@@ -562,11 +608,11 @@ public:
                     /* pixel_height = */ 64
             };
 
-    static encoder_model encoders[5];
     static std::map<uint16_t, std::vector<uint8_t >> _openglToKeyPadMap;
     static std::map<uint16_t, uint8_t> _openglToTouchMap;
     static std::function<void( int pin, int value)> _setFastTouchFn;
     static std::map<uint16_t, uint8_t> _fastTouchPinMap;
+    static XR1Model *_xr1;
 
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 
@@ -579,11 +625,13 @@ public:
                     case GLFW_RELEASE:
                         if (_touch) {
                             _touch->setTouched(touchKey, false);
+                            _xr1->touchKeysPressed[touchKey] = false;
                         }
                         break;
                     case GLFW_PRESS:
                         if (_touch) {
                             _touch->setTouched(touchKey, true);
+                            _xr1->touchKeysPressed[touchKey] = true;
                             break;
                         }
                 }
@@ -595,11 +643,13 @@ public:
                     case GLFW_RELEASE:
                         if (_setFastTouchFn) {
                             _setFastTouchFn(touchPin, 0);
+                            _xr1->touchKeysPressed[12] = false;
                         }
                         break;
                     case GLFW_PRESS:
                         if (_setFastTouchFn) {
                             _setFastTouchFn(touchPin, 0xFF);
+                            _xr1->touchKeysPressed[12] = false;
                         }
                 }
             }
@@ -611,11 +661,13 @@ public:
                     case GLFW_RELEASE:
                         if (_keypad) {
                             _keypad->unpressKey(mapping[0], mapping[1]);
+                            _xr1->keysPressed[mapping[0]][mapping[1]] = false;
                         }
                         break;
                     case GLFW_PRESS:
                         if (_keypad) {
                             _keypad->pressKey(mapping[0], mapping[1]);
+                            _xr1->keysPressed[mapping[0]][mapping[1]] = true;
                         }
                         break;
                 }
@@ -660,18 +712,11 @@ public:
 
             if (isEncoderChange){
                 //Serial.printf("[encoder inc %d] ", encoderIndex);
-                encoder_model &encoder = encoders[encoderIndex];
+                encoder_model &encoder = _xr1->encoders[encoderIndex];
                 if (isEncoderIncreased && encoder.rval < encoder.rmax - encoder.rstep )
                     encoder.rval+=encoder.rstep;
                 else if (encoder.rval > encoder.rmin + encoder.rstep)
                     encoder.rval-=encoder.rstep;
-                //Serial.printf("value: %d\n", encoder.rval);
-                /*
-                if (_wire != nullptr) {
-                    _wire->addDeviceDataResponse(encoder.addr, encoder.rval & 0x00FF );
-                    _wire->addDeviceDataResponse(encoder.addr, encoder.rval >> 8);
-                }
-                 */
             }
         } else if (action == GLFW_PRESS)
         {
@@ -715,16 +760,12 @@ private:
     static CapTouch_T *_touch;
 
 };
-template <typename Wire_T, typename Keypad_T, typename CapTouch_T> encoder_model U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::encoders[5] = {
-        {0x36,0,0,0,0,0},
-        {0x37,0,0,0,0,0},
-        {0x38,0,0,0,0,0},
-        {0x39,0,0,0,0,0},
-        {0x40,0,0,0,0,0}};
 
-template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Wire_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_wire;
-template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Keypad_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_keypad;
-template <typename Wire_T, typename Keypad_T, typename CapTouch_T> CapTouch_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_touch;
+
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Wire_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_wire = nullptr;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> Keypad_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_keypad = nullptr;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> CapTouch_T *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_touch = nullptr;
+template <typename Wire_T, typename Keypad_T, typename CapTouch_T> XR1Model *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_xr1 = nullptr;
 
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::string U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_textCharacterInput;
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::function<void( int pin, int value)> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_setFastTouchFn;
@@ -746,10 +787,10 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint
         { GLFW_KEY_SEMICOLON,   {4, 5}},   // '9' PAGE_LEFT_BTN_CHAR '9'
         { GLFW_KEY_APOSTROPHE,  {4, 4}},   // '3' PAGE_RIGHT_BTN_CHAR '3'
 
-        { GLFW_KEY_Q,       {0, 2}},    // 'm' step 1 / 16
-        { GLFW_KEY_W,       {1, 2}},    // 'n' step 2 / 16
+        { GLFW_KEY_Q,       {2, 0}},    // 'm' step 1 / 16
+        { GLFW_KEY_W,       {2, 1}},    // 'n' step 2 / 16
         { GLFW_KEY_E,       {2, 2}},    // 'o' step 3 / 16
-        { GLFW_KEY_R,       {3, 2}},    // 'p' step 4 / 16
+        { GLFW_KEY_R,       {2, 3}},    // 'p' step 4 / 16
 
         { GLFW_KEY_T,       {3, 0}},    // 's' step 5 / 16
         { GLFW_KEY_Y,       {3, 1}},    // 't' step 6 / 16
