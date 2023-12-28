@@ -11,6 +11,9 @@ include_directories(${teensy_x86_stubs_INCLUDE_DIR})
 find_package(teensy_x86_u8g2_stubs)
 include_directories(${teensy_x86_u8g2_stubs_INCLUDE_DIR})
 
+find_package(teensy_x86_keypad_stubs)
+include_directories(${teensy_x86_keypad_stubs_INCLUDE_DIR})
+
 find_package(imgui REQUIRED)
 find_path(STB_INCLUDE_DIRS "stb.h")
 

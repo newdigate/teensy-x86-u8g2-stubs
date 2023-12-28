@@ -71,10 +71,8 @@ public:
     static unsigned int VBO, VAO, EBO;
     static inline bool _drawFrame = false;
     static XR1Model *_xr1;
-    static std::function<void(uint8_t, uint8_t, bool)> _toggleKeypadFn;
 
-    static bool InitOpenGL(std::function<void(uint8_t, uint8_t, bool)> toggleKeypadFn, XR1Model *xr1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
-        _toggleKeypadFn = toggleKeypadFn;
+    static bool InitOpenGL(XR1Model *xr1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
         _frameSize = frameSize;
         _xr1 = xr1;
         _drawFrame = drawFrame;
@@ -312,14 +310,10 @@ public:
                     if (j > 0) ImGui::SameLine();
                     if (ImGui::Button(id.c_str())) {          // Buttons return true when clicked (most widgets return true when edited/activated)
                         if (!pressed) {
-                            if (_toggleKeypadFn)
-                                _toggleKeypadFn(i,j, true);
-                            _xr1->keysPressed[i][j] = true;
+                            _xr1->openGlKeypadButtonPress(i, j, true);
                             counter++;
                         } else {
-                            if (_toggleKeypadFn)
-                                _toggleKeypadFn(i,j, false);
-                            _xr1->keysPressed[i][j] = false;
+                            _xr1->openGlKeypadButtonPress(i, j, false);
                         }
                     }
                     if (pressed) {
@@ -433,14 +427,13 @@ unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
 int16_t st7735_opengl_window::_frameSize = 0;
 XR1Model *st7735_opengl_window::_xr1 = nullptr;
-std::function<void(uint8_t, uint8_t, bool)> st7735_opengl_window::_toggleKeypadFn;
 
 
 template<typename Wire_T, typename Keypad_T, typename CapTouch_T>
 class U8G2_128X64_OPENGL : public U8G2 {
 public:
 
-    U8G2_128X64_OPENGL(XR1Model *xr1, std::function<void( int pin, int value)> setFastTouchFn,
+    U8G2_128X64_OPENGL(XR1Model *xr1,
                        const u8g2_cb_t *rotation, uint8_t clock, uint8_t data, uint8_t cs, uint8_t dc, uint8_t reset = 255,
                        Wire_T *wire = nullptr,
                        Keypad_T *keypad = nullptr,
@@ -453,7 +446,6 @@ public:
         _wire = wire;
         _keypad = keypad;
         _touch = touch;
-        _setFastTouchFn = setFastTouchFn;
         if (_wire) {
             _wire->onDataSentToDevice = dataSentToDevice;
            /* if (_wire->onDataSentToDevice) {
@@ -462,20 +454,11 @@ public:
             */
         }
 
-        if (st7735_opengl_window::InitOpenGL(
-                openGlKeypadButtonPress,
-                //[] (uint8_t i, uint8_t j, bool value) {},
-                xr1, 0, false, key_callback, character_callback))
+        if (st7735_opengl_window::InitOpenGL(xr1, 0, false, key_callback, character_callback))
             return;
     }
 
-    static void openGlKeypadButtonPress(uint8_t i, uint8_t j, bool value) {
-        if (value) {
-            _keypad->pressKey(i, j);
-        } else {
-            _keypad->unpressKey(i, j);
-        }
-    }
+
 
     virtual ~U8G2_128X64_OPENGL() = default;
 
@@ -637,7 +620,6 @@ public:
 
     static std::map<uint16_t, std::vector<uint8_t >> _openglToKeyPadMap;
     static std::map<uint16_t, uint8_t> _openglToTouchMap;
-    static std::function<void( int pin, int value)> _setFastTouchFn;
     static std::map<uint16_t, uint8_t> _fastTouchPinMap;
     static XR1Model *_xr1;
 
@@ -668,16 +650,10 @@ public:
                 uint8_t touchPin = _fastTouchPinMap[key];
                 switch (action) {
                     case GLFW_RELEASE:
-                        if (_setFastTouchFn) {
-                            _setFastTouchFn(touchPin, 0);
-                            _xr1->touchKeysPressed[12] = false;
-                        }
+                        _xr1->setFastTouch(touchPin, 0);
                         break;
                     case GLFW_PRESS:
-                        if (_setFastTouchFn) {
-                            _setFastTouchFn(touchPin, 0xFF);
-                            _xr1->touchKeysPressed[12] = false;
-                        }
+                        _xr1->setFastTouch(touchPin, 0xFF);
                 }
             }
         } else {
@@ -795,7 +771,6 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> CapTouch_T *U
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> XR1Model *U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_xr1 = nullptr;
 
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::string U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_textCharacterInput;
-template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::function<void( int pin, int value)> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_setFastTouchFn;
 
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint16_t, std::vector<uint8_t>> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_openglToKeyPadMap = {
         { GLFW_KEY_ESCAPE,  {3, 1}}, // 'j' ESCAPE_BTN_CHAR

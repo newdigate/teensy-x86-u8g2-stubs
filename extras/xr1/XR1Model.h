@@ -4,6 +4,7 @@
 
 #ifndef TEENSY_U8G2_OPENGL_EXAMPLES_BASIC_XR1MODEL_H
 #define TEENSY_U8G2_OPENGL_EXAMPLES_BASIC_XR1MODEL_H
+#include <Keypad.h>
 
 struct encoder_model {
 public:
@@ -17,9 +18,12 @@ public:
 
 class XR1Model {
 public:
+
+    XR1Model(Keypad &keypad) : _keypad(keypad) {
+    }
+
     bool keysPressed[6][6];
     bool touchKeysPressed[13];
-
     bool ledStates[30];
     encoder_model encoders[5] = {
         {0x36,0,0,0,0,0},
@@ -27,6 +31,23 @@ public:
         {0x38,0,0,0,0,0},
         {0x39,0,0,0,0,0},
         {0x40,0,0,0,0,0}};
+
+    Keypad &_keypad;
+
+    void openGlKeypadButtonPress(uint8_t i, uint8_t j, bool value) {
+        if (value) {
+            _keypad.pressKey(i, j);
+        } else {
+            _keypad.unpressKey(i, j);
+        }
+        keysPressed[i][j] = value;
+    }
+    void setFastTouch( int pin, int value) {
+        if (pin == 32) {
+            touchKeysPressed[12] = value > 63;
+            std::cout << "touchKeysPressed[12]: pin " << pin << " - value " << value << " " << touchKeysPressed[12] << std::endl;
+        }
+    }
 };
 
 
