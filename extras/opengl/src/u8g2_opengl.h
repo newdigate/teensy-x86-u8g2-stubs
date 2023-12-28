@@ -329,8 +329,35 @@ public:
                 }
             }
 
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
+            for (int i=0; i<13; i++) {
+                std::string id = std::string("T" + std::to_string(i) );
+
+                bool pressed = _xr1->touchKeysPressed[i];
+                if (pressed) {
+                    static float b = 1.0f; //  test whatever color you need from imgui_demo.cpp e.g.
+                    static float c = 0.5f; //
+                    static int i = 3;
+                    ImGui::PushID(id.c_str());
+                    ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(i/7.0f, b, b));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(i/7.0f, b, b));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(i/7.0f, c, c));
+
+                }
+
+                if (i > 0) ImGui::SameLine();
+                if (ImGui::Button(id.c_str())){
+                    if (!pressed) {
+                        _xr1->touchKeysPressed[i] = true;
+                    } else {
+                        _xr1->touchKeysPressed[i] = false;
+                    }
+                };
+                if (pressed) {
+                    ImGui::PopStyleColor(3);
+                    ImGui::PopID();
+                }
+            }
+
 
             ImGui::End();
         }
