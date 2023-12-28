@@ -14,22 +14,25 @@ include_directories(${teensy_x86_u8g2_stubs_INCLUDE_DIR})
 find_package(teensy_x86_keypad_stubs)
 include_directories(${teensy_x86_keypad_stubs_INCLUDE_DIR})
 
-find_package(imgui REQUIRED)
-find_path(STB_INCLUDE_DIRS "stb.h")
-
 include(../opengl.cmake.in)
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/teensy_x86_u8g2_stubs_opengl/)
 #set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib/teensy_x86_u8g2_stubs_opengl )
 
 set(HEADER_FILES
         u8g2_opengl.h
-        u8g2_opengl_main.h)
+        u8g2_opengl_main.h
+        ../../xr1/XR1Model.h
+        ../imgui/imgui_impl_opengl3.h
+        ../imgui/imgui.h
+        ../imgui/imgui_internal.h
+        ../imgui/imstb_textedit.h
+        ../imgui/imconfig.h
+        ../imgui/imgui_impl_glfw.h)
 
 include_directories(../imgui)
 include_directories(../../xr1)
 
 add_library(teensy_x86_u8g2_stubs_opengl INTERFACE ${HEADER_FILES})
-target_include_directories(teensy_x86_u8g2_stubs_opengl ${STB_INCLUDE_DIRS})
 
 set_target_properties(teensy_x86_u8g2_stubs_opengl PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
 

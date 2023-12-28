@@ -59,6 +59,16 @@ void main()
 }
 )glsl";
 
+
+const char* keyNames[6][6] = {
+        {"PERF: n","PATT: b","TRCK: v","       ","       ","       "},
+        {"       ","MODD: `","SEL:SPA","ESC:ESC","       ","       "},
+        {" 01: q "," 02: w "," 03: e "," 04: r ","STRT: ,","FUNC: z"},
+        {" 05: t "," 06: y "," 07: u "," 08: i ","STOP: .","COPY: c"},
+        {" 09: a "," 10: s "," 11: d "," 12: f ","PG_R: '","TMPO: x"},
+        {" 13: g "," 14: h "," 15: j "," 16: k ","PG_L: ;","SND:ent"},
+};
+
 class st7735_opengl_window {
 public:
     static bool _initialized;
@@ -297,7 +307,7 @@ public:
             for (int i=0; i<6; i++) {
                 for (int j=0; j<6; j++) {
                     bool pressed = _xr1->keysPressed[i][j];
-                    std::string id = std::string("B" + std::to_string(i) + std::to_string(j));
+                    std::string id = std::string(keyNames[i][j]);
                     if (pressed) {
                         static float b = 1.0f; //  test whatever color you need from imgui_demo.cpp e.g.
                         static float c = 0.5f; //
@@ -663,14 +673,18 @@ public:
                 switch (action) {
                     case GLFW_RELEASE:
                         if (_keypad) {
-                            _keypad->unpressKey(mapping[0], mapping[1]);
-                            _xr1->keysPressed[mapping[0]][mapping[1]] = false;
+                            int col = mapping[0];
+                            int row = mapping[1];
+                            _keypad->unpressKey(col, row);
+                            _xr1->keysPressed[row][col] = false;
                         }
                         break;
                     case GLFW_PRESS:
                         if (_keypad) {
-                            _keypad->pressKey(mapping[0], mapping[1]);
-                            _xr1->keysPressed[mapping[0]][mapping[1]] = true;
+                            int col = mapping[0];
+                            int row = mapping[1];
+                            _keypad->pressKey(col, row);
+                            _xr1->keysPressed[row][col] = true;
                         }
                         break;
                 }
@@ -789,25 +803,25 @@ template <typename Wire_T, typename Keypad_T, typename CapTouch_T> std::map<uint
         { GLFW_KEY_SEMICOLON,   {4, 5}},   // '9' PAGE_LEFT_BTN_CHAR '9'
         { GLFW_KEY_APOSTROPHE,  {4, 4}},   // '3' PAGE_RIGHT_BTN_CHAR '3'
 
-        { GLFW_KEY_Q,       {2, 0}},    // 'm' step 1 / 16
-        { GLFW_KEY_W,       {2, 1}},    // 'n' step 2 / 16
+        { GLFW_KEY_Q,       {0, 2}},    // 'm' step 1 / 16
+        { GLFW_KEY_W,       {1, 2}},    // 'n' step 2 / 16
         { GLFW_KEY_E,       {2, 2}},    // 'o' step 3 / 16
-        { GLFW_KEY_R,       {2, 3}},    // 'p' step 4 / 16
+        { GLFW_KEY_R,       {3, 2}},    // 'p' step 4 / 16
 
-        { GLFW_KEY_T,       {3, 0}},    // 's' step 5 / 16
-        { GLFW_KEY_Y,       {3, 1}},    // 't' step 6 / 16
-        { GLFW_KEY_U,       {3, 2}},    // 'u' step 7 / 16
+        { GLFW_KEY_T,       {0, 3}},    // 's' step 5 / 16
+        { GLFW_KEY_Y,       {1, 3}},    // 't' step 6 / 16
+        { GLFW_KEY_U,       {2, 3}},    // 'u' step 7 / 16
         { GLFW_KEY_I,       {3, 3}},    // 'v' step 8 / 16
 
-        { GLFW_KEY_A,       {4, 0}},    // 'y' step 9 / 16
-        { GLFW_KEY_S,       {4, 1}},    // 'z' step 10 / 16
-        { GLFW_KEY_D,       {4, 2}},    // '1' step 11 / 16
-        { GLFW_KEY_F,       {4, 3}},    // '2' step 12 / 16
+        { GLFW_KEY_A,       {0, 4}},    // 'y' step 9 / 16
+        { GLFW_KEY_S,       {1, 4}},    // 'z' step 10 / 16
+        { GLFW_KEY_D,       {2, 4}},    // '1' step 11 / 16
+        { GLFW_KEY_F,       {3, 4}},    // '2' step 12 / 16
 
-        { GLFW_KEY_G,       {5, 0}},    // '5' step 13 / 16
-        { GLFW_KEY_H,       {5, 1}},    // '6' step 14 / 16
-        { GLFW_KEY_J,       {5, 2}},    // '7' step 15 / 16
-        { GLFW_KEY_K,       {5, 3}},    // '8' step 16 / 16
+        { GLFW_KEY_G,       {0, 5}},    // '5' step 13 / 16
+        { GLFW_KEY_H,       {1, 5}},    // '6' step 14 / 16
+        { GLFW_KEY_J,       {2, 5}},    // '7' step 15 / 16
+        { GLFW_KEY_K,       {3, 5}},    // '8' step 16 / 16
 };
 template <typename Wire_T, typename Keypad_T, typename CapTouch_T>
 std::map<uint16_t, uint8_t> U8G2_128X64_OPENGL<Wire_T,Keypad_T,CapTouch_T>::_fastTouchPinMap ={
