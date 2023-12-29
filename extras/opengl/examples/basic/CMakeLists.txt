@@ -18,6 +18,9 @@ include_directories(${teensy_x86_keypad_stubs_INCLUDE_DIR})
 find_package(teensy_x86_mpr121_stubs)
 include_directories(${teensy_x86_mpr121_stubs_INCLUDE_DIR})
 
+find_package(teensy_x86_tlc5947_stubs)
+include_directories(${teensy_x86_tlc5947_stubs_INCLUDE_DIR})
+
 #find_package(imgui REQUIRED)
 #find_path(STB_INCLUDE_DIRS "stb.h")
 
@@ -37,6 +40,7 @@ target_link_libraries(basic ${teensy_x86_u8g2_stubs_opengl_LIBS})
 target_link_libraries(basic ${teensy_x86_twowire_stubs_LIBS})
 target_link_libraries(basic ${teensy_x86_keypad_stubs_LIBS})
 target_link_libraries(basic ${teensy_x86_mpr121_stubs_LIBS})
+target_link_libraries(basic ${teensy_x86_tlc5947_stubs_LIBS})
 include(../../opengl.cmake.in)
 target_link_libraries(basic ${LIBS})
 target_link_libraries(basic -L../../../lib imgui)

@@ -4,6 +4,7 @@
 #include "Keypad.h"
 #include <Adafruit_MPR121.h>
 Adafruit_MPR121 mpr121_a = Adafruit_MPR121();
+Adafruit_TLC5947 tlc(1, 6, 5, 4);
 
 const byte ROWS = 6;
 const byte COLS = 6;
@@ -22,9 +23,7 @@ byte colPins[COLS] = {2, 9, 12, 41, 40, 39}; //connect to the column pinouts of 
 
 Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
-XR1Model xr1Model(kpd);
-
-
+XR1Model xr1Model(kpd, tlc);
 
 U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(&xr1Model, U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
 
@@ -88,6 +87,10 @@ void setup(void) {
     //u8g2.clear();
     //u8g2.drawStr(0,10,"nic");
     u8g2.sendBuffer();  // transfer internal memory to the display
+
+    tlc.setPWM(0, 0x8000);
+    tlc.setPWM(1, 0xC000);
+    tlc.setPWM(2, 0xFFFF);
 }
 
 void loop(void) {

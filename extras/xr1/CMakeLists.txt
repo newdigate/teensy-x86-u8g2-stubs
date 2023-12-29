@@ -13,6 +13,9 @@ include_directories(${teensy_x86_u8g2_stubs_INCLUDE_DIR})
 find_package(teensy_x86_keypad_stubs)
 include_directories(${teensy_x86_keypad_stubs_INCLUDE_DIR})
 
+find_package(teensy_x86_tlc5947_stubs)
+include_directories(${teensy_x86_tlc5947_stubs_INCLUDE_DIR})
+
 set(HEADER_FILES
         XR1Model.h.h)
 

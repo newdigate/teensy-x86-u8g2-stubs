@@ -14,6 +14,9 @@ include_directories(${teensy_x86_u8g2_stubs_INCLUDE_DIR})
 find_package(teensy_x86_keypad_stubs)
 include_directories(${teensy_x86_keypad_stubs_INCLUDE_DIR})
 
+find_package(teensy_x86_tlc5947_stubs)
+include_directories(${teensy_x86_tlc5947_stubs_INCLUDE_DIR})
+
 include(../opengl.cmake.in)
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/teensy_x86_u8g2_stubs_opengl/)
 #set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib/teensy_x86_u8g2_stubs_opengl )

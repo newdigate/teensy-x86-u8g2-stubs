@@ -22,7 +22,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-
+#include <Adafruit_TLC5947.h>
 #include "XR1Model.h"
 
 static const char* vertexShaderCode = R"glsl(
@@ -73,7 +73,7 @@ class st7735_opengl_window {
 public:
     static bool _initialized;
     static GLFWwindow *window;
-    static uint16_t textureImage[128*128];
+    static uint16_t textureImage[128*64];
     static GLuint shader_program, vertex_shader, fragment_shader;
     static GLuint texture;
     static int16_t _frameSize;
@@ -178,8 +178,8 @@ public:
         float vertices[] = {
                 // positions          // colors           // texture coords
                 1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f, // top right
-                1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.5f, // bottom right
-                -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.5f, // bottom left
+                1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f, // bottom right
+                -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f, // bottom left
                 -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 0.0f  // top left
         };
         if (_drawFrame) {
@@ -298,6 +298,12 @@ public:
 
             ImGui::Begin("XR1-emulator!");                          // Create a window called "Hello, world!" and append into it.
 
+            //GLuint my_opengl_texture;
+            //glGenTextures(1, &my_opengl_texture);
+            // [...] load image, render to texture, etc.
+            ImGui::Image((void*)(intptr_t)texture, ImVec2(128,64));
+
+
             for (int i=0; i<5; i++) {
                 if (ImGui::SliderInt(std::string("encoder " + std::to_string(i)).c_str() , &encoderValues[i], _xr1->encoders[i].rmin, _xr1->encoders[i].rmax)){
                     _xr1->encoders[i].rval = encoderValues[i];
@@ -362,6 +368,23 @@ public:
                 }
             }
 
+            for (int i=0; i<24; i++) {
+                std::string id = std::string("L" + ((i < 10)?std::string(" "):std::string("")) + std::to_string(i) );
+
+                uint16_t pwmValue = _xr1->_tlc5947.getPWM(i);
+                static float saturation = 0.0f; //  test whatever color you need from imgui_demo.cpp e.g.
+                float value = (pwmValue * 1.0f) / (0xFFFF * 1.0f);
+                ImGui::PushID(id.c_str());
+                ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(1, saturation, value));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1, saturation, value));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(1, saturation, 0.5f));
+
+                if (i > 0 && i != 12) ImGui::SameLine();
+                ImGui::SmallButton(id.c_str());
+                ImGui::PopStyleColor(3);
+                ImGui::PopID();
+            }
+
 
             ImGui::End();
         }
@@ -369,7 +392,7 @@ public:
         // use the shader program
         glUseProgram(shader_program);
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, textureImage);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 64, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, textureImage);
         // render
         // ------
         glClearColor(0.2f, 0.3f, 1.0f, 1.0f);
@@ -427,7 +450,7 @@ public:
 
 bool  st7735_opengl_window::_initialized = false;
 GLFWwindow *st7735_opengl_window::window = nullptr;
-uint16_t st7735_opengl_window::textureImage[128*128] = {0};
+uint16_t st7735_opengl_window::textureImage[128*64] = {0};
 GLuint st7735_opengl_window::shader_program;
 GLuint st7735_opengl_window::vertex_shader;
 GLuint st7735_opengl_window::fragment_shader;

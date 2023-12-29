@@ -5,6 +5,7 @@
 #ifndef TEENSY_U8G2_OPENGL_EXAMPLES_BASIC_XR1MODEL_H
 #define TEENSY_U8G2_OPENGL_EXAMPLES_BASIC_XR1MODEL_H
 #include <Keypad.h>
+#include <Adafruit_TLC5947.h>
 
 struct encoder_model {
 public:
@@ -19,12 +20,12 @@ public:
 class XR1Model {
 public:
 
-    XR1Model(Keypad &keypad) : _keypad(keypad) {
+    XR1Model(Keypad &keypad, Adafruit_TLC5947 &tlc5947) : _keypad(keypad), _tlc5947(tlc5947) {
     }
 
-    bool keysPressed[6][6];
-    bool touchKeysPressed[13];
-    bool ledStates[30];
+    bool keysPressed[6][6]{};
+    bool touchKeysPressed[13]{};
+    bool ledStates[30]{};
     encoder_model encoders[5] = {
         {0x36,0,0,0,0,0},
         {0x37,0,0,0,0,0},
@@ -33,6 +34,7 @@ public:
         {0x40,0,0,0,0,0}};
 
     Keypad &_keypad;
+    Adafruit_TLC5947 &_tlc5947;
 
     void openGlKeypadButtonPress(uint8_t i, uint8_t j, bool value) {
         if (value) {
