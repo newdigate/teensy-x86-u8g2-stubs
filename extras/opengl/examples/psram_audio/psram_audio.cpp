@@ -1,0 +1,158 @@
+#include "u8g2_opengl.h"
+#include "u8g2_opengl_main.h"
+#include "Wire.h"
+#include "Keypad.h"
+#include <Adafruit_MPR121.h>
+#include <output_soundio.h>
+#include <input_soundio.h>
+#include <TeensyVariablePlayback.h>
+#include <TeensyAudioFlashLoader.h>
+
+// GUItool: begin automatically generated code
+AudioPlayArrayResmp      rraw_a1;        //xy=126,363
+AudioSynthWaveformSine   sine1;          //xy=126,404
+AudioSynthWaveformSine   sine2;          //xy=126,449
+AudioFilterLadder        ladder1;        //xy=394,374
+AudioOutputSoundIO       sio_out1;       //xy=980,346
+AudioConnection          patchCord1(rraw_a1, 0, ladder1, 0);
+AudioConnection          patchCord2(sine1, 0, ladder1, 1);
+AudioConnection          patchCord3(sine2, 0, ladder1, 2);
+AudioConnection          patchCord4(ladder1, 0, sio_out1, 0);
+AudioConnection          patchCord5(ladder1, 0, sio_out1, 1);
+// GUItool: end automatically generated code
+
+
+Adafruit_MPR121 mpr121_a = Adafruit_MPR121();
+Adafruit_TLC5947 tlc(1, 6, 5, 4);
+newdigate::flashloader loader;
+newdigate::audiosample *sample;
+const byte ROWS = 6;
+const byte COLS = 6;
+
+char keys[ROWS][COLS] = {
+        {'a','b','c','d','e','f'},
+        {'g','h','i','j','k','l'},
+        {'m','n','o','p','q','r'},
+        {'s','t','u','v','w','x'},
+        {'y','z','1','2','3','4'},
+        {'5','6','7','8','9','0'},
+};
+
+byte rowPins[ROWS] = {38, 37, 36, 35, 34, 33}; //connect to the row pinouts of the keypad
+byte colPins[COLS] = {2, 9, 12, 41, 40, 39}; //connect to the column pinouts of the keypad
+
+Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
+
+XR1Model xr1Model(kpd, tlc);
+
+U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(&xr1Model, U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
+
+void encoder_set(int addr, int16_t rmin, int16_t rmax, int16_t rstep, int16_t rval, uint8_t rloop) {
+    Wire1.beginTransmission(addr);
+    Wire1.write((uint8_t)(rval & 0xff)); Wire1.write((uint8_t)(rval >> 8));
+    Wire1.write(0); Wire1.write(rloop);
+    Wire1.write((uint8_t)(rmin & 0xff)); Wire1.write((uint8_t)(rmin >> 8));
+    Wire1.write((uint8_t)(rmax & 0xff)); Wire1.write((uint8_t)(rmax >> 8));
+    Wire1.write((uint8_t)(rstep & 0xff)); Wire1.write((uint8_t)(rstep >> 8));
+    Wire1.endTransmission();
+}
+
+int encoder_addrs[5] = {
+        0x36, 0x37, 0x38, 0x39, 0x40
+};
+
+int old_encoderValues[5] = {0,0,0,0,0};
+
+
+
+void initEncoders() {
+    for (int i=0; i<5; i++) {
+        encoder_set(encoder_addrs[i], -3000, 3000, 1, 0, 0);
+    }
+}
+
+int16_t getEncoder(int address)
+{
+    Wire1.requestFrom(address, 2);
+    int8_t lsbyte = (int8_t)Wire1.read();
+    int8_t msbyte = (int8_t)Wire1.read();
+    int16_t result =  lsbyte & 0x00FF | msbyte << 8;
+    return result;
+}
+
+void updateEncoders() {
+    for (int i=0;i<5;i++){
+        if (i > 0) break;
+        int16_t encoderValue = getEncoder(encoder_addrs[i]);
+        if (encoderValue != old_encoderValues[i]) {
+            Serial.printf("Encoder %d changed from %d to %d\n", i, old_encoderValues[i], encoderValue);
+            old_encoderValues[i] = encoderValue;
+        }
+    }
+}
+
+void setup(void) {
+    AudioMemory(50);
+
+    initEncoders();
+    kpd.setHoldTime(0);
+    kpd.setDebounceTime(0);
+
+    u8g2.begin();
+    //u8g2.clearBuffer();					// clear the internal memory
+    u8g2.setFont(u8g2_font_ncenB08_tr);	// choose a suitable font
+    u8g2.drawStr(0,10,"Hello World!12345");	// write something to the internal memory
+    u8g2.drawStr(0,18,"World Hello!");	// write something to the internal memory
+    u8g2.drawFrame(0,0, 127, 63);
+    u8g2.drawFrame(10,10, 107, 43);
+    u8g2.drawFrame(20,20, 87, 23);
+    u8g2.drawFrame(30,30, 67, 3);
+
+    //u8g2.clear();
+    //u8g2.drawStr(0,10,"nic");
+    u8g2.sendBuffer();  // transfer internal memory to the display
+
+    ladder1.frequency(2000.0);
+    ladder1.resonance(0.5);
+    ladder1.octaveControl(4); // TODO: use 7 ?
+
+    sine1.amplitude(1.0f);
+    sine1.frequency(10.0f);
+
+    sine2.amplitude(1.0f);
+    sine2.frequency(1.0f);
+    sample = loader.loadSample("audio enjoyer/xr-1/samples/_OH.RAW");
+    tlc.setPWM(0, 0x8000);
+    tlc.setPWM(1, 0xC000);
+    tlc.setPWM(2, 0xFFFF);
+}
+
+void loop(void) {
+    if (!rraw_a1.isPlaying()) {
+        rraw_a1.playRaw(sample->sampledata, sample->samplesize/2, 1);
+    }
+    if (kpd.getKeys()) {
+        for (int i=0; i<LIST_MAX; i++)   // Scan the whole key list.
+        {
+            if (kpd.key[i].stateChanged)   // Only find keys that have changed state.
+            {
+                switch (kpd.key[i].kstate) {  // Report active key state : IDLE, PRESSED, HOLD, or RELEASED
+                    case PRESSED:
+                        std::cout << "button pressed: " << kpd.key[i].kchar << " " <<  (long)kpd.key[i].kchar << std::endl;
+                        break;
+                }
+            }
+        }
+    }
+
+    updateEncoders();
+    delay(1);
+}
+
+int st7735_main(int argc, char** argv) {
+    SD.setSDCardFolderPath("/Users/nicholasnewdigate/Audio/dev-audio/");
+    return 0;
+}
+
+unsigned __exidx_start;
+unsigned __exidx_end;
