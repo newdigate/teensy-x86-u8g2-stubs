@@ -21,8 +21,7 @@ include_directories(${teensy_x86_mpr121_stubs_INCLUDE_DIR})
 find_package(teensy_x86_tlc5947_stubs)
 include_directories(${teensy_x86_tlc5947_stubs_INCLUDE_DIR})
 
-#find_package(imgui REQUIRED)
-#find_path(STB_INCLUDE_DIRS "stb.h")
+add_subdirectory(../../imgui imgui)
 
 include_directories(../../src)
 include_directories(../../imgui)
@@ -43,7 +42,7 @@ target_link_libraries(basic ${teensy_x86_mpr121_stubs_LIBS})
 target_link_libraries(basic ${teensy_x86_tlc5947_stubs_LIBS})
 include(../../opengl.cmake.in)
 target_link_libraries(basic ${LIBS})
-target_link_libraries(basic -L../../../lib imgui)
+target_link_libraries(basic imgui)
 
 if  (APPLE)
         target_link_libraries(basic

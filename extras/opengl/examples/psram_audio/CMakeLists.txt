@@ -38,6 +38,8 @@ include_directories(${teensy_variable_playback_INCLUDE_DIR})
 
 include_directories(/usr/local/include)
 
+add_subdirectory(../../imgui imgui)
+
 include_directories(../../src)
 include_directories(../../imgui)
 include_directories(../../../xr1)
@@ -63,7 +65,7 @@ target_link_libraries(psram_audio "-L/usr/local/lib -lsoundio")
 
 include(../../opengl.cmake.in)
 target_link_libraries(psram_audio ${LIBS})
-target_link_libraries(psram_audio -L../../../lib imgui)
+target_link_libraries(psram_audio imgui)
 
 if  (APPLE)
         target_link_libraries(psram_audio
