@@ -10,15 +10,11 @@
 
 // GUItool: begin automatically generated code
 AudioPlayArrayResmp      rraw_a1;        //xy=126,363
-AudioSynthWaveformSine   sine1;          //xy=126,404
-AudioSynthWaveformSine   sine2;          //xy=126,449
-AudioFilterLadder        ladder1;        //xy=394,374
-AudioOutputSoundIO       sio_out1;       //xy=980,346
-AudioConnection          patchCord1(rraw_a1, 0, ladder1, 0);
-AudioConnection          patchCord2(sine1, 0, ladder1, 1);
-AudioConnection          patchCord3(sine2, 0, ladder1, 2);
-AudioConnection          patchCord4(ladder1, 0, sio_out1, 0);
-AudioConnection          patchCord5(ladder1, 0, sio_out1, 1);
+AudioAmplifier           amp1;           //xy=312,358
+AudioOutputSoundIO       sio_out1;       //xy=587.5000152587891,362.2500057220459
+AudioConnection          patchCord1(rraw_a1, 0, amp1, 0);
+AudioConnection          patchCord2(amp1, 0, sio_out1, 0);
+AudioConnection          patchCord3(amp1, 0, sio_out1, 1);
 // GUItool: end automatically generated code
 
 
@@ -112,15 +108,7 @@ void setup(void) {
     //u8g2.drawStr(0,10,"nic");
     u8g2.sendBuffer();  // transfer internal memory to the display
 
-    ladder1.frequency(2000.0);
-    ladder1.resonance(0.5);
-    ladder1.octaveControl(4); // TODO: use 7 ?
-
-    sine1.amplitude(1.0f);
-    sine1.frequency(10.0f);
-
-    sine2.amplitude(1.0f);
-    sine2.frequency(1.0f);
+    amp1.gain(1.0);
     sample = loader.loadSample("audio enjoyer/xr-1/samples/_OH.RAW");
     tlc.setPWM(0, 0x8000);
     tlc.setPWM(1, 0xC000);
