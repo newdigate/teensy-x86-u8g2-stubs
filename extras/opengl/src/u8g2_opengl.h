@@ -373,7 +373,7 @@ public:
 
                 uint16_t pwmValue = _xr1->_tlc5947.getPWM(i);
                 static float saturation = 0.0f; //  test whatever color you need from imgui_demo.cpp e.g.
-                float value = (pwmValue * 1.0f) / (0xFFFF * 1.0f);
+                const float value = pwmValue * 1.0f / 4095.0f;
                 ImGui::PushID(id.c_str());
                 ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(1, saturation, value));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1, saturation, value));
