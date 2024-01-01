@@ -379,7 +379,7 @@ public:
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1, saturation, value));
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(1, saturation, 0.5f));
 
-                if (i > 0 && i != 12) ImGui::SameLine();
+                if (i > 0 && i % 4 != 0) ImGui::SameLine();
                 ImGui::SmallButton(id.c_str());
                 ImGui::PopStyleColor(3);
                 ImGui::PopID();
