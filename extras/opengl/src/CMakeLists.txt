@@ -24,6 +24,7 @@ set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/teensy_x86_u8g2_stubs_op
 set(HEADER_FILES
         u8g2_opengl.h
         u8g2_opengl_main.h
+        u8g2_opengl_serial_log.h
         ../../xr1/XR1Model.h
         ../imgui/imgui_impl_opengl3.h
         ../imgui/imgui.h

@@ -22,6 +22,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "u8g2_opengl_serial_log.h"
 #include <Adafruit_TLC5947.h>
 #include "XR1Model.h"
 
@@ -81,6 +82,7 @@ public:
     static unsigned int VBO, VAO, EBO;
     static inline bool _drawFrame = false;
     static XR1Model *_xr1;
+    static u8g2_opengl_serial_log serial_log;
 
     static bool InitOpenGL(XR1Model *xr1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
         _frameSize = frameSize;
@@ -253,14 +255,34 @@ public:
                 }
             }
         */
+        HardwareSerial::serial1_initialized_callback = Serial1InitCallBack;
+
         _initialized = true;
         return true;
+    }
+
+    static void Serial1InitCallBack(HardwareSerial &s) {
+        s.addEventListener( AddSerialLog );
+    }
+
+    static void AddSerialLog(const char * s, size_t len) {
+        serial_log.AddLog(s, len);
     }
 
     static inline bool shouldClose() {
         if (!_initialized) return false;
 
         return glfwWindowShouldClose(window);
+    }
+
+    static void ShowExampleAppLog(bool* p_open)
+    {
+        // For the demo: add a debug button _BEFORE_ the normal log window contents
+        // We take advantage of a rarely used feature: multiple calls to Begin()/End() are appending to the _same_ window.
+        // Most of the contents of the window will be added by the log.Draw() call.
+        ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+        // Actually call in the regular Log helper (which will Begin() into the same window as we just did)
+        serial_log.Draw("Example: Log", p_open);
     }
     
     static void refresh() {
@@ -295,6 +317,8 @@ public:
                     _xr1->encoders[3].rval,
                     _xr1->encoders[4].rval,
             };
+            static bool open = true;
+            ShowExampleAppLog(&open);
 
             ImGui::Begin("XR1-emulator!");                          // Create a window called "Hello, world!" and append into it.
 
@@ -460,7 +484,7 @@ unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
 int16_t st7735_opengl_window::_frameSize = 0;
 XR1Model *st7735_opengl_window::_xr1 = nullptr;
-
+u8g2_opengl_serial_log st7735_opengl_window::serial_log;
 
 template<typename Wire_T, typename Keypad_T, typename CapTouch_T>
 class U8G2_128X64_OPENGL : public U8G2 {
