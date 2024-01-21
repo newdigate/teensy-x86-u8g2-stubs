@@ -127,6 +127,8 @@ public:
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
 
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
@@ -257,6 +259,10 @@ public:
         // set texture filtering parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // load and create a texture
+        // -------------------------
+
         // load image, create texture and generate mipmaps
 
     //    textureImage = new  {0};
@@ -312,6 +318,12 @@ public:
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        ImGuiWindowFlags window_flags = 0;
+        static bool isopen = true;
+        ImGui::Begin("docking", &isopen, window_flags);
+        ImGui::End();
+
         {
             static float f = 0.0f;
             static int counter = 0;
@@ -324,6 +336,7 @@ public:
             };
             static bool open = true;
             ShowExampleAppLog(&open);
+
 
             ImGui::Begin("XR1-emulator!");                          // Create a window called "Hello, world!" and append into it.
 
@@ -418,6 +431,15 @@ public:
         }
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Update and Render additional Platform Windows
+        // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
+        //  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
+        GLFWwindow* backup_current_context = glfwGetCurrentContext();
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+        glfwMakeContextCurrent(backup_current_context);
+
         glfwSwapBuffers(window2);
         glfwPollEvents();
     }
