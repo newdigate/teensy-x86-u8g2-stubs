@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "u8g2_opengl.h"
 #include "u8g2_opengl_main.h"
 #include "Wire.h"
@@ -25,7 +26,7 @@ Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 XR1Model xr1Model(kpd, tlc);
 
-U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(&xr1Model, U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
+extern U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2;
 
 void encoder_set(int addr, int16_t rmin, int16_t rmax, int16_t rstep, int16_t rval, uint8_t rloop) {
     Wire1.beginTransmission(addr);
@@ -110,12 +111,16 @@ void loop(void) {
     }
 
     updateEncoders();
-       delay(1000);
+    delay(1000);
+    Serial.println("One second...");
 }
 
 int st7735_main(int argc, char** argv) {
     return 0;
 }
+
+U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2(&xr1Model, U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 14, /* reset=*/ 15, &Wire1, &kpd, &mpr121_a);
+
 
 unsigned __exidx_start;
 unsigned __exidx_end;

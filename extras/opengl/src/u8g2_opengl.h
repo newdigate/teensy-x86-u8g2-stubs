@@ -74,9 +74,10 @@ class st7735_opengl_window {
 public:
     static bool _initialized;
     static GLFWwindow *window;
+    static GLFWwindow *window2;
     static uint16_t textureImage[128*64];
     static GLuint shader_program, vertex_shader, fragment_shader;
-    static GLuint texture;
+    static GLuint texture, texture2;
     static int16_t _frameSize;
     // vao and vbo handle
     static unsigned int VBO, VAO, EBO;
@@ -104,6 +105,36 @@ public:
 
         GLFWmonitor *monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+        window2 = glfwCreateWindow(640, 480, "World Hello", NULL, NULL);
+        if (!window2)
+        {
+            glfwTerminate();
+            return -1;
+        }
+        glfwMakeContextCurrent(st7735_opengl_window::window2);
+
+        glGenTextures(1, &texture2);
+        glBindTexture(GL_TEXTURE_2D, texture2); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
+        // set the texture wrapping parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	// set texture wrapping to GL_REPEAT (default wrapping method)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // set texture filtering parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
+        //ImGui::StyleColorsLight();
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplGlfw_InitForOpenGL(window2, true);
+        ImGui_ImplOpenGL3_Init( "#version 150");
 
         /* Create a windowed mode window and its OpenGL context */
         int width = (_drawFrame)? 128+(_frameSize*2) : 128;
@@ -127,21 +158,6 @@ public:
         glfwMakeContextCurrent(st7735_opengl_window::window);
 
         std::cout << "GL Version: " << (char *) glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-        // Setup Dear ImGui style
-        ImGui::StyleColorsDark();
-        //ImGui::StyleColorsLight();
-
-        // Setup Platform/Renderer backends
-        ImGui_ImplGlfw_InitForOpenGL(window, true);
-        ImGui_ImplOpenGL3_Init( "#version 150");
-
         int length;
 
         // create and compiler vertex shader
@@ -272,7 +288,7 @@ public:
     static inline bool shouldClose() {
         if (!_initialized) return false;
 
-        return glfwWindowShouldClose(window);
+        return glfwWindowShouldClose(window) || glfwWindowShouldClose(window2);
     }
 
     static void ShowExampleAppLog(bool* p_open)
@@ -282,27 +298,16 @@ public:
         // Most of the contents of the window will be added by the log.Draw() call.
         ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
         // Actually call in the regular Log helper (which will Begin() into the same window as we just did)
-        serial_log.Draw("Example: Log", p_open);
+        serial_log.Draw("Serial Monitor", p_open);
     }
-    
-    static void refresh() {
+    static void refreshWindow2() {
         if (!_initialized) return;
-        /*if (_surpressUpdate) return;
-        if (_useFramebuffer && !_update_cont) return;
-        if (!_needsUpdate) {
-            glfwPollEvents();
-            return;
-        }
-    */
-        //unsigned long microsStart = micros();
-        /*
-        if (microsStart - lastUpdate < 100) {
-            return;
-        }
-        */
-        //lastUpdate = microsStart;
-        glfwPollEvents();
 
+        glfwMakeContextCurrent(window2);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 64, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, textureImage);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -325,7 +330,7 @@ public:
             //GLuint my_opengl_texture;
             //glGenTextures(1, &my_opengl_texture);
             // [...] load image, render to texture, etc.
-            ImGui::Image((void*)(intptr_t)texture, ImVec2(128,64));
+            ImGui::Image((void*)(intptr_t)texture2, ImVec2(128,64));
 
 
             for (int i=0; i<5; i++) {
@@ -409,10 +414,19 @@ public:
                 ImGui::PopID();
             }
 
-
             ImGui::End();
         }
         ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        glfwSwapBuffers(window2);
+        glfwPollEvents();
+    }
+
+    static void refresh() {
+        if (!_initialized) return;
+
+        glfwPollEvents();
+        glfwMakeContextCurrent(window);
         // use the shader program
         glUseProgram(shader_program);
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -429,7 +443,7 @@ public:
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -474,11 +488,13 @@ public:
 
 bool  st7735_opengl_window::_initialized = false;
 GLFWwindow *st7735_opengl_window::window = nullptr;
+GLFWwindow *st7735_opengl_window::window2 = nullptr;
 uint16_t st7735_opengl_window::textureImage[128*64] = {0};
 GLuint st7735_opengl_window::shader_program;
 GLuint st7735_opengl_window::vertex_shader;
 GLuint st7735_opengl_window::fragment_shader;
 GLuint st7735_opengl_window::texture;
+GLuint st7735_opengl_window::texture2;
 unsigned int st7735_opengl_window::VBO;
 unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
