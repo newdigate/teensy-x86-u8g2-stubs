@@ -47,7 +47,7 @@ public:
     void setFastTouch( int pin, int value) {
         if (pin == 32) {
             touchKeysPressed[12] = value > 63;
-            std::cout << "touchKeysPressed[12]: pin " << pin << " - value " << value << " " << touchKeysPressed[12] << std::endl;
+            // std::cout << "touchKeysPressed[12]: pin " << pin << " - value " << value << " " << touchKeysPressed[12] << std::endl;
         }
     }
 };

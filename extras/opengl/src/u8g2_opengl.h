@@ -25,6 +25,8 @@
 #include "u8g2_opengl_serial_log.h"
 #include <Adafruit_TLC5947.h>
 #include "XR1Model.h"
+#include "include/shader.h"
+#include "u8g2_opengl_primaryview.h"
 
 static const char* vertexShaderCode = R"glsl(
 #version 330 core
@@ -84,6 +86,8 @@ public:
     static inline bool _drawFrame = false;
     static XR1Model *_xr1;
     static u8g2_opengl_serial_log serial_log;
+    static Shader *shader;
+    static st7735_opengl_primaryview primaryView;
 
     static bool InitOpenGL(XR1Model *xr1, int16_t frameSize, bool drawFrame = false, GLFWkeyfun key_callback = nullptr, GLFWcharfun character_callback = nullptr) {
         _frameSize = frameSize;
@@ -112,6 +116,9 @@ public:
             return -1;
         }
         glfwMakeContextCurrent(st7735_opengl_window::window2);
+
+
+        primaryView.Init(window2, "/Users/nicholasnewdigate/Development/github/newdigate/glm_obj/cube.obj");
 
         glGenTextures(1, &texture2);
         glBindTexture(GL_TEXTURE_2D, texture2); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
@@ -162,38 +169,12 @@ public:
         std::cout << "GL Version: " << (char *) glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
         int length;
 
-        // create and compiler vertex shader
-        vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-        length = strlen(vertexShaderCode);
-        glShaderSource(vertex_shader, 1, &vertexShaderCode, &length);
-        glCompileShader(vertex_shader);
-        if(!check_shader_compile_status(vertex_shader)) {
-            glfwDestroyWindow(st7735_opengl_window::window);
-            glfwTerminate();
-            return false;
-        }
+        std::string vertexShaderCodeStr = std::string(vertexShaderCode);
+        std::string fragmentShaderCodeStr = std::string(fragmentShaderCode);
 
-        // create and compiler fragment shader
-        fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-        length = strlen(fragmentShaderCode);
-        glShaderSource(fragment_shader, 1, &fragmentShaderCode, &length);
-        glCompileShader(fragment_shader);
-        if(!check_shader_compile_status(fragment_shader)) {
-            glfwDestroyWindow(st7735_opengl_window::window);
-            glfwTerminate();
-            return false;
-        }
-
+        shader = new Shader(vertexShaderCodeStr,  fragmentShaderCodeStr );
         // create program
-        shader_program = glCreateProgram();
-
-        // attach shaders
-        glAttachShader(shader_program, vertex_shader);
-        glAttachShader(shader_program, fragment_shader);
-
-        // link the program and check for errors
-        glLinkProgram(shader_program);
-        check_program_link_status(shader_program);
+        shader_program = shader->ID;
 
         float vertices[] = {
                 // positions          // colors           // texture coords
@@ -277,6 +258,7 @@ public:
                 }
             }
         */
+
         HardwareSerial::serial1_initialized_callback = Serial1InitCallBack;
 
         _initialized = true;
@@ -408,10 +390,13 @@ public:
         if (!_initialized) return;
 
         glfwMakeContextCurrent(window2);
+
+        primaryView.refresh();
+
         glBindTexture(GL_TEXTURE_2D, texture2);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 64, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, textureImage);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        //glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        //glClear(GL_COLOR_BUFFER_BIT);
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -438,6 +423,15 @@ public:
             //glGenTextures(1, &my_opengl_texture);
             // [...] load image, render to texture, etc.
             ImGui::Image((void*)(intptr_t)texture2, ImVec2(128,64));
+            ImGui::End();
+
+            ImGui::Begin("Camera");
+            ImGui::LabelText("Yaw:", "%f", st7735_opengl_primaryview::camera.Yaw);
+            ImGui::LabelText("Pitch:", "%f", st7735_opengl_primaryview::camera.Pitch);
+            ImGui::LabelText("Zoom:", "%f", st7735_opengl_primaryview::camera.Zoom);
+            ImGui::LabelText("x:", "%f", st7735_opengl_primaryview::camera.Position.x);
+            ImGui::LabelText("y:", "%f", st7735_opengl_primaryview::camera.Position.y);
+            ImGui::LabelText("z:", "%f", st7735_opengl_primaryview::camera.Position.z);
             ImGui::End();
 
             ImGui::Begin("XR1 encoders");
@@ -550,7 +544,8 @@ public:
         glfwPollEvents();
         glfwMakeContextCurrent(window);
         // use the shader program
-        glUseProgram(shader_program);
+        //glUseProgram(shader_program);
+        shader->use();
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 64, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, textureImage);
         // render
@@ -564,7 +559,6 @@ public:
         // render container
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -617,6 +611,8 @@ GLuint st7735_opengl_window::vertex_shader;
 GLuint st7735_opengl_window::fragment_shader;
 GLuint st7735_opengl_window::texture;
 GLuint st7735_opengl_window::texture2;
+Shader *st7735_opengl_window::shader;
+st7735_opengl_primaryview st7735_opengl_window::primaryView;
 unsigned int st7735_opengl_window::VBO;
 unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
