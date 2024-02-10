@@ -15,19 +15,26 @@
 #include "include/model.h"
 #include "include/camera.h"
 
+#include "opengl_3d_resources.h"
+
 static const char* vertexShaderCode22 = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 2) in vec2 aTexCoords;
 layout (location = 3) in mat4 aInstanceMatrix;
+layout (location = 7) in int aTexuteIndex;
 
 out vec2 TexCoords;
+flat out int TextureIndex;
 
 uniform mat4 projection;
 uniform mat4 view;
 
 void main()
 {
+
+    TextureIndex = aTexuteIndex;
+
     TexCoords = aTexCoords;
     gl_Position = projection * view * aInstanceMatrix * vec4(aPos, 1.0f);
 }
@@ -38,12 +45,17 @@ static const char* fragmentShaderCode22 = R"glsl(
 out vec4 FragColor;
 
 in vec2 TexCoords;
+flat in int TextureIndex;
 
 uniform sampler2D texture_diffuse1;
+uniform sampler2D texture_diffuse2;
 
 void main()
 {
-    FragColor = texture(texture_diffuse1, TexCoords);
+    if (TextureIndex == 0)
+        FragColor = texture(texture_diffuse2, TexCoords);
+    else
+        FragColor = texture(texture_diffuse1, TexCoords);
 }
 )glsl";
 
@@ -55,9 +67,12 @@ public:
     Shader *shader;
     Model *rock;
     glm::mat4* modelMatrices;
+    int *modelTextureIndex;
     unsigned int texture;
+    unsigned int texture2;
     const unsigned int amount = 16;
     unsigned char *texturedata = nullptr;
+    unsigned char *texturedata2 = nullptr;
 
     // settings
     const static unsigned int SCR_WIDTH ;
@@ -72,13 +87,20 @@ public:
     // timing
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
+    XR1Model *xr1_model;
+
+    unsigned int buffer, buffer2;
 
     st7735_opengl_primaryview()
         : window(nullptr),
           shader(nullptr),
           rock(nullptr),
           modelMatrices(nullptr),
-          texture(0) {
+          texture(0),
+          texture2(0),
+          xr1_model(nullptr)
+    {
+        modelTextureIndex = new int[16] {0};
     }
     // glfw: whenever the window size changed (by OS or user resize) this callback function executes
     // ---------------------------------------------------------------------------------------------
@@ -119,9 +141,10 @@ public:
         camera.ProcessMouseScroll(static_cast<float>(yoffset));
     }
 
-    bool Init(GLFWwindow *wnd, const std::string &modelFileName) {
-        camera.Position = glm::vec3(0.0, 40.0, 0.0);
-        camera.Pitch = -90.0;
+    bool Init(GLFWwindow *wnd, XR1Model *model) {
+        xr1_model = model;
+        camera.Position = glm::vec3(19.0, 40.0, -10.0);
+        camera.Pitch = -82.0;
         camera.Yaw = 90.0;
         camera.ProcessMouseMovement(0, 0);
         window = wnd;
@@ -136,7 +159,7 @@ public:
         // -----------------------------
         glEnable(GL_DEPTH_TEST);
 
-        rock = new Model(modelFileName);
+        rock = new Model(tr909_key_intermediate_obj, tr909_key_intermediate_obj_len);
         /* Make the window's context current */
 
 
@@ -170,17 +193,34 @@ public:
             //model = glm::rotate(model, rotAngle, glm::vec3(0.4f, 0.6f, 0.8f));
 */
             // 4. now add to list of matrices
-            model = glm::translate(model, glm::vec3(i * 5.0, 0, 0));
+            model = glm::translate(model, glm::vec3(i * 2.5, 0, 0));
 
             modelMatrices[i] = model;
         }
 
+
+        glGenBuffers(1, &buffer2);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer2);
+        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(int), &modelTextureIndex[0], GL_DYNAMIC_DRAW);
+        for (unsigned int i = 0; i < rock->meshes.size(); i++)
+        {
+            unsigned int VAO = rock->meshes[i].VAO;
+            glBindVertexArray(VAO);
+            // set attribute pointers for matrix (4 times vec4)
+            glEnableVertexAttribArray(7);
+            glVertexAttribPointer(7, 2, GL_INT, GL_FALSE, sizeof(int),  (void*)0);
+
+            glVertexAttribDivisor(7, 1);
+
+            glBindVertexArray(0);
+        }
+
         // configure instanced array
         // -------------------------
-        unsigned int buffer;
         glGenBuffers(1, &buffer);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
         glBufferData(GL_ARRAY_BUFFER, amount * sizeof(glm::mat4), &modelMatrices[0], GL_STATIC_DRAW);
+
 
         // set transformation matrices as an instance vertex attribute (with divisor 1)
         // note: we're cheating a little by taking the, now publicly declared, VAO of the model's mesh(es) and adding new vertexAttribPointers
@@ -199,11 +239,14 @@ public:
             glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
             glEnableVertexAttribArray(6);
             glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
+            //glEnableVertexAttribArray(7);
+            //glVertexAttribPointer(7, 2, GL_INT, GL_FALSE, sizeof(int),  (void*)(4 * sizeof(glm::vec4)));
 
             glVertexAttribDivisor(3, 1);
             glVertexAttribDivisor(4, 1);
             glVertexAttribDivisor(5, 1);
             glVertexAttribDivisor(6, 1);
+            //glVertexAttribDivisor(7, 1);
 
             glBindVertexArray(0);
         }
@@ -217,7 +260,7 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         // load and generate the texture
         int width, height, nrChannels;
-        texturedata = stbi_load("uvmap.DDS", &width, &height, &nrChannels, 0);
+        texturedata = stbi_load("/Users/nicholasnewdigate/Development/github/newdigate/teensy-x86-u8g2-stubs/extras/opengl/resources/textures/tr-keycap.png", &width, &height, &nrChannels, 0);
         if (texturedata)
         {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturedata);
@@ -229,9 +272,34 @@ public:
         }
         stbi_image_free(texturedata);
 
+
+        glGenTextures(1, &texture2);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        // set the texture wrapping/filtering options (on the currently bound texture object)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        texturedata2 = stbi_load("/Users/nicholasnewdigate/Development/github/newdigate/teensy-x86-u8g2-stubs/extras/opengl/resources/textures/tr-keycap2.png", &width, &height, &nrChannels, 0);
+        if (texturedata2)
+        {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturedata2);
+            glGenerateMipmap(GL_TEXTURE_2D);
+        }
+        else
+        {
+            std::cout << "Failed to load texture2" << std::endl;
+        }
+        stbi_image_free(texturedata2);
     }
 
     void refresh() {
+        for (uint8_t i=0; i<16; i++) {
+            xr1_model->ledStates[i] = xr1_model->_tlc5947.getPWM(i);
+            modelTextureIndex[i] = xr1_model->ledStates[i] > 0;
+        }
+
         // per-frame time logic
         // --------------------
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -262,14 +330,20 @@ public:
 
         // draw meteorites
         shader->setInt("texture_diffuse1", 0);
+        shader->setInt("texture_diffuse2", 1);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture); // note: we also made the textures_loaded vector public (instead of private) from the model class.
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture2); // note: we also made the textures_loaded vector public (instead of private) from the model class.
         for (unsigned int i = 0; i < rock->meshes.size(); i++)
         {
             glBindVertexArray(rock->meshes[i].VAO);
             glDrawElementsInstanced(GL_TRIANGLES, static_cast<unsigned int>(rock->meshes[i].indices.size()), GL_UNSIGNED_INT, 0, amount);
             glBindVertexArray(0);
         }
+
+        glBindBuffer(GL_ARRAY_BUFFER, buffer2);
+        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(int), &modelTextureIndex[0], GL_DYNAMIC_DRAW);
         rock->Draw(*shader);
     }
 

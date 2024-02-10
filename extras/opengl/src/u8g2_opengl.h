@@ -118,7 +118,7 @@ public:
         glfwMakeContextCurrent(st7735_opengl_window::window2);
 
 
-        primaryView.Init(window2, "/Users/nicholasnewdigate/Development/github/newdigate/glm_obj/cube.obj");
+        primaryView.Init(window2, xr1);
 
         glGenTextures(1, &texture2);
         glBindTexture(GL_TEXTURE_2D, texture2); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
@@ -612,13 +612,13 @@ GLuint st7735_opengl_window::fragment_shader;
 GLuint st7735_opengl_window::texture;
 GLuint st7735_opengl_window::texture2;
 Shader *st7735_opengl_window::shader;
-st7735_opengl_primaryview st7735_opengl_window::primaryView;
 unsigned int st7735_opengl_window::VBO;
 unsigned int st7735_opengl_window::VAO;
 unsigned int st7735_opengl_window::EBO;
 int16_t st7735_opengl_window::_frameSize = 0;
 XR1Model *st7735_opengl_window::_xr1 = nullptr;
 u8g2_opengl_serial_log st7735_opengl_window::serial_log;
+st7735_opengl_primaryview st7735_opengl_window::primaryView;
 
 template<typename Wire_T, typename Keypad_T, typename CapTouch_T>
 class U8G2_128X64_OPENGL : public U8G2 {

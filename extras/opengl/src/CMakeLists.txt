@@ -43,9 +43,29 @@ set(HEADER_FILES
         ../imgui/imconfig.h
         ../imgui/imgui_impl_glfw.h)
 
+set(OTHER_HEADER_FILES
+        include/animation.h
+        include/animator.h
+        include/animdata.h
+        include/assimp_glm_helpers.h
+        include/bone.h
+        include/camera.h
+        include/entity.h
+        include/filesystem.h
+        include/mesh.h
+        include/model.h
+        include/model_animation.h
+        include/shader.h
+        include/shader_c.h
+        include/shader_m.h
+        include/shader_s.h
+        include/shader_t.h
+        include/stb_image.h
+        include/stbi_DDS_aug.h
+        include/stb_image_aug.h)
+
 include_directories(../imgui)
 include_directories(../../xr1)
-
 
 add_library(teensy_x86_u8g2_stubs_opengl STATIC ${SOURCE_FILES} ${HEADER_FILES})
 
@@ -74,6 +94,8 @@ install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/uninstall.cmake
         DESTINATION "lib/cmake/teensy_x86_u8g2_stubs_opengl" )
 
+install(FILES ${OTHER_HEADER_FILES}
+        DESTINATION "lib/cmake/teensy_x86_u8g2_stubs_opengl/include" )
 ##
 # copied from: https://gist.github.com/royvandam/3033428
 # Add uninstall target
