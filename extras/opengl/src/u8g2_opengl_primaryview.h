@@ -16,26 +16,29 @@
 #include "include/camera.h"
 
 #include "opengl_3d_resources.h"
+// TODO : nic - 1) TexCoords -> FragColor1, 2) change in int aTexuteIndex -> float
+
 
 static const char* vertexShaderCode22 = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
-layout (location = 2) in vec2 aTexCoords;
 layout (location = 3) in mat4 aInstanceMatrix;
 layout (location = 7) in int aTexuteIndex;
 
-out vec2 TexCoords;
+out vec4 FragColor1;
+out vec4 FragColor2;
 flat out int TextureIndex;
 
 uniform mat4 projection;
 uniform mat4 view;
+uniform vec4 aColor1;
+uniform vec4 aColor2;
 
 void main()
 {
-
+    FragColor1 = aColor1;
+    FragColor2 = aColor2;
     TextureIndex = aTexuteIndex;
-
-    TexCoords = aTexCoords;
     gl_Position = projection * view * aInstanceMatrix * vec4(aPos, 1.0f);
 }
 )glsl";
@@ -44,18 +47,13 @@ static const char* fragmentShaderCode22 = R"glsl(
 #version 330 core
 out vec4 FragColor;
 
-in vec2 TexCoords;
+in vec4 FragColor1;
+in vec4 FragColor2;
 flat in int TextureIndex;
-
-uniform sampler2D texture_diffuse1;
-uniform sampler2D texture_diffuse2;
 
 void main()
 {
-    if (TextureIndex == 0)
-        FragColor = texture(texture_diffuse2, TexCoords);
-    else
-        FragColor = texture(texture_diffuse1, TexCoords);
+    FragColor = (TextureIndex * FragColor2) + ( (1 - TextureIndex) * FragColor1 );
 }
 )glsl";
 
@@ -68,11 +66,9 @@ public:
     Model *rock;
     glm::mat4* modelMatrices;
     int *modelTextureIndex;
-    unsigned int texture;
-    unsigned int texture2;
+
     const unsigned int amount = 16;
-    unsigned char *texturedata = nullptr;
-    unsigned char *texturedata2 = nullptr;
+
 
     // settings
     const static unsigned int SCR_WIDTH ;
@@ -96,8 +92,6 @@ public:
           shader(nullptr),
           rock(nullptr),
           modelMatrices(nullptr),
-          texture(0),
-          texture2(0),
           xr1_model(nullptr)
     {
         modelTextureIndex = new int[16] {0};
@@ -167,6 +161,7 @@ public:
         const std::string fragmentShaderCodeStr = std::string(fragmentShaderCode22);
 
         shader = new Shader(vertexShaderCodeStr,  fragmentShaderCodeStr );
+
         modelMatrices = new glm::mat4[amount];
         srand(static_cast<unsigned int>(glfwGetTime())); // initialize random seed
         float radius = 150.0;
@@ -239,8 +234,6 @@ public:
             glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
             glEnableVertexAttribArray(6);
             glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
-            //glEnableVertexAttribArray(7);
-            //glVertexAttribPointer(7, 2, GL_INT, GL_FALSE, sizeof(int),  (void*)(4 * sizeof(glm::vec4)));
 
             glVertexAttribDivisor(3, 1);
             glVertexAttribDivisor(4, 1);
@@ -251,6 +244,7 @@ public:
             glBindVertexArray(0);
         }
 
+        /*
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
         // set the texture wrapping/filtering options (on the currently bound texture object)
@@ -292,6 +286,7 @@ public:
             std::cout << "Failed to load texture2" << std::endl;
         }
         stbi_image_free(texturedata2);
+        */
     }
 
     void refresh() {
@@ -321,13 +316,14 @@ public:
         shader->use();
         shader->setMat4("projection", projection);
         shader->setMat4("view", view);
-
+        shader->setVec4("aColor1",0.7f, 0.7f, 0.7f, 0.8f);
+        shader->setVec4("aColor2",1.0f, 0.7f, 0.7f, 1.0f);
         // draw planet
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, -3.0f, 0.0f));
         model = glm::scale(model, glm::vec3(4.0f, 4.0f, 4.0f));
         shader->setMat4("model", model);
-
+        /*
         // draw meteorites
         shader->setInt("texture_diffuse1", 0);
         shader->setInt("texture_diffuse2", 1);
@@ -335,6 +331,7 @@ public:
         glBindTexture(GL_TEXTURE_2D, texture); // note: we also made the textures_loaded vector public (instead of private) from the model class.
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2); // note: we also made the textures_loaded vector public (instead of private) from the model class.
+        */
         for (unsigned int i = 0; i < rock->meshes.size(); i++)
         {
             glBindVertexArray(rock->meshes[i].VAO);
