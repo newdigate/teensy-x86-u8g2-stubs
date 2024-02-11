@@ -26,6 +26,9 @@ Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 XR1Model xr1Model(kpd, tlc);
 
+int currentStep = 0;
+int lastMillis = 0;
+
 extern U8G2_128X64_OPENGL<TwoWire, Keypad, Adafruit_MPR121> u8g2;
 
 void encoder_set(int addr, int16_t rmin, int16_t rmax, int16_t rstep, int16_t rval, uint8_t rloop) {
@@ -89,12 +92,30 @@ void setup(void) {
     //u8g2.drawStr(0,10,"nic");
     u8g2.sendBuffer();  // transfer internal memory to the display
 
-    tlc.setPWM(0, 0x8000);
-    tlc.setPWM(1, 0xC000);
-    tlc.setPWM(2, 0xFFFF);
+    tlc.setPWM(0, 4095);
+    for (int i=1; i<16; i++) {
+        tlc.setPWM(i, 0);
+    }
+    currentStep = 0;
 }
 
+
+
 void loop(void) {
+
+    uint32_t current = millis();
+    if (current - lastMillis > 125) {
+        lastMillis = current;
+        currentStep++;
+        currentStep %= 16;
+        for (int i=0; i<16; i++) {
+            tlc.setPWM(i, 0);
+        }
+
+        tlc.setPWM((currentStep-1) % 16, 2047);
+        tlc.setPWM(currentStep, 4095);
+        tlc.setPWM((currentStep+1) % 16, 2047);
+    }
 
     if (kpd.getKeys()) {
         for (int i=0; i<LIST_MAX; i++)   // Scan the whole key list.
@@ -111,8 +132,6 @@ void loop(void) {
     }
 
     updateEncoders();
-    delay(1000);
-    Serial.println("One second...");
 }
 
 int st7735_main(int argc, char** argv) {

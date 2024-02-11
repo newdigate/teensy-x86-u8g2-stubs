@@ -23,11 +23,11 @@ static const char* vertexShaderCode22 = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 3) in mat4 aInstanceMatrix;
-layout (location = 7) in int aTexuteIndex;
+layout (location = 7) in float aTexuteIndex;
 
 out vec4 FragColor1;
 out vec4 FragColor2;
-flat out int TextureIndex;
+out float TextureIndex;
 
 uniform mat4 projection;
 uniform mat4 view;
@@ -49,11 +49,11 @@ out vec4 FragColor;
 
 in vec4 FragColor1;
 in vec4 FragColor2;
-flat in int TextureIndex;
+in float TextureIndex;
 
 void main()
 {
-    FragColor = (TextureIndex * FragColor2) + ( (1 - TextureIndex) * FragColor1 );
+    FragColor = (TextureIndex * FragColor2) + ( (1.0f - TextureIndex) * FragColor1 );
 }
 )glsl";
 
@@ -65,10 +65,9 @@ public:
     Shader *shader;
     Model *rock;
     glm::mat4* modelMatrices;
-    int *modelTextureIndex;
+    float *modelTextureIndex;
 
     const unsigned int amount = 16;
-
 
     // settings
     const static unsigned int SCR_WIDTH ;
@@ -94,7 +93,7 @@ public:
           modelMatrices(nullptr),
           xr1_model(nullptr)
     {
-        modelTextureIndex = new int[16] {0};
+        modelTextureIndex = new float[amount] {0};
     }
     // glfw: whenever the window size changed (by OS or user resize) this callback function executes
     // ---------------------------------------------------------------------------------------------
@@ -196,14 +195,14 @@ public:
 
         glGenBuffers(1, &buffer2);
         glBindBuffer(GL_ARRAY_BUFFER, buffer2);
-        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(int), &modelTextureIndex[0], GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(float), &modelTextureIndex[0], GL_STATIC_DRAW);
         for (unsigned int i = 0; i < rock->meshes.size(); i++)
         {
             unsigned int VAO = rock->meshes[i].VAO;
             glBindVertexArray(VAO);
             // set attribute pointers for matrix (4 times vec4)
             glEnableVertexAttribArray(7);
-            glVertexAttribPointer(7, 2, GL_INT, GL_FALSE, sizeof(int),  (void*)0);
+            glVertexAttribPointer(7, 1, GL_FLOAT, GL_FALSE, sizeof(float),  (void*)0);
 
             glVertexAttribDivisor(7, 1);
 
@@ -291,8 +290,9 @@ public:
 
     void refresh() {
         for (uint8_t i=0; i<16; i++) {
-            xr1_model->ledStates[i] = xr1_model->_tlc5947.getPWM(i);
-            modelTextureIndex[i] = xr1_model->ledStates[i] > 0;
+            float ledPWM = xr1_model->_tlc5947.getPWM(i) / 4095.0f;
+            xr1_model->ledStates[i] =  ledPWM;
+            modelTextureIndex[i] = xr1_model->ledStates[i];
         }
 
         // per-frame time logic
@@ -318,6 +318,8 @@ public:
         shader->setMat4("view", view);
         shader->setVec4("aColor1",0.7f, 0.7f, 0.7f, 0.8f);
         shader->setVec4("aColor2",1.0f, 0.7f, 0.7f, 1.0f);
+
+
         // draw planet
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, -3.0f, 0.0f));
@@ -335,12 +337,17 @@ public:
         for (unsigned int i = 0; i < rock->meshes.size(); i++)
         {
             glBindVertexArray(rock->meshes[i].VAO);
+
+            glBindBuffer(GL_ARRAY_BUFFER, buffer2);
+            glBufferData(GL_ARRAY_BUFFER, amount * sizeof(float), &modelTextureIndex[0], GL_STATIC_DRAW);
+
             glDrawElementsInstanced(GL_TRIANGLES, static_cast<unsigned int>(rock->meshes[i].indices.size()), GL_UNSIGNED_INT, 0, amount);
+
             glBindVertexArray(0);
+
         }
 
-        glBindBuffer(GL_ARRAY_BUFFER, buffer2);
-        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(int), &modelTextureIndex[0], GL_DYNAMIC_DRAW);
+
         rock->Draw(*shader);
     }
 

@@ -25,7 +25,7 @@ public:
 
     bool keysPressed[6][6]{};
     bool touchKeysPressed[13]{};
-    bool ledStates[36]{};
+    float ledStates[36]{};
     encoder_model encoders[5] = {
         {0x36,0,0,0,0,0},
         {0x37,0,0,0,0,0},
