@@ -22,6 +22,7 @@
 static const char* vertexShaderCode22 = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 Normal;
 layout (location = 3) in mat4 aInstanceMatrix;
 layout (location = 7) in float aTexuteIndex;
 
@@ -33,11 +34,23 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform vec4 aColor1;
 uniform vec4 aColor2;
+uniform vec3 lightPos;
+uniform vec3 lightColor;
 
 void main()
 {
-    FragColor1 = aColor1;
-    FragColor2 = aColor2;
+    // ambient
+    float ambientStrength = 0.1;
+    vec3 ambient = ambientStrength * lightColor;
+
+    // diffuse
+    vec3 norm = normalize(Normal);
+    vec3 lightDir = normalize(lightPos - aPos);
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+
+    FragColor1 =  vec4((ambient + diffuse), 0.5f) * aColor1;
+    FragColor2 =  vec4((ambient + diffuse), 0.5f) * aColor2;
     TextureIndex = aTexuteIndex;
     gl_Position = projection * view * aInstanceMatrix * vec4(aPos, 1.0f);
 }
@@ -64,6 +77,9 @@ public:
 
     Shader *shader;
     Model *rock;
+    // lighting
+    glm::vec3 lightPos;;
+
     glm::mat4* modelMatrices;
     float *modelTextureIndex;
 
@@ -91,7 +107,8 @@ public:
           shader(nullptr),
           rock(nullptr),
           modelMatrices(nullptr),
-          xr1_model(nullptr)
+          xr1_model(nullptr),
+          lightPos(1.2f, 5.0f, 2.0f)
     {
         modelTextureIndex = new float[amount] {0};
     }
@@ -318,7 +335,8 @@ public:
         shader->setMat4("view", view);
         shader->setVec4("aColor1",0.7f, 0.7f, 0.7f, 0.8f);
         shader->setVec4("aColor2",1.0f, 0.7f, 0.7f, 1.0f);
-
+        shader->setVec3("lightPos", lightPos);
+        shader->setVec3("lightColor", 1.0f, 1.0f, 1.0f);
 
         // draw planet
         glm::mat4 model = glm::mat4(1.0f);
