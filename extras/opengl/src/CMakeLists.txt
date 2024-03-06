@@ -95,7 +95,7 @@ install(FILES
         DESTINATION "lib/cmake/teensy_x86_u8g2_stubs_opengl" )
 
 install(FILES ${OTHER_HEADER_FILES}
-        DESTINATION "lib/cmake/teensy_x86_u8g2_stubs_opengl/include" )
+        DESTINATION "/usr/local/include/teensy_x86_u8g2_stubs_opengl/include" )
 ##
 # copied from: https://gist.github.com/royvandam/3033428
 # Add uninstall target
