@@ -36,6 +36,7 @@ uniform vec4 aColor1;
 uniform vec4 aColor2;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
+uniform vec3 viewPos;
 
 void main()
 {
@@ -49,8 +50,14 @@ void main()
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
 
-    FragColor1 =  vec4((ambient + diffuse), 0.5f) * aColor1;
-    FragColor2 =  vec4((ambient + diffuse), 0.5f) * aColor2;
+    vec3 viewDir = normalize(viewPos - aPos);
+    vec3 reflectDir = reflect(-lightDir, Normal);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(Normal, halfwayDir), 0.0), 32.0);
+
+    FragColor1 =  vec4((ambient + diffuse + spec), 0.5f) * aColor1;
+    FragColor2 =  vec4((ambient + diffuse + spec), 0.5f) * aColor2;
     TextureIndex = aTexuteIndex;
     gl_Position = projection * view * aInstanceMatrix * vec4(aPos, 1.0f);
 }
@@ -83,7 +90,9 @@ public:
     glm::mat4* modelMatrices;
     float *modelTextureIndex;
 
-    const unsigned int amount = 16;
+    const unsigned int numRows = 4;
+    const unsigned int numCol = 6;
+    const unsigned int numKeys = numRows * numCol;
 
     // settings
     const static unsigned int SCR_WIDTH ;
@@ -110,7 +119,7 @@ public:
           xr1_model(nullptr),
           lightPos(1.2f, 5.0f, 2.0f)
     {
-        modelTextureIndex = new float[amount] {0};
+        modelTextureIndex = new float[numKeys] {0};
     }
     // glfw: whenever the window size changed (by OS or user resize) this callback function executes
     // ---------------------------------------------------------------------------------------------
@@ -153,9 +162,9 @@ public:
 
     bool Init(GLFWwindow *wnd, XR1Model *model) {
         xr1_model = model;
-        camera.Position = glm::vec3(19.0, 40.0, -10.0);
-        camera.Pitch = -82.0;
-        camera.Yaw = 90.0;
+        camera.Position = glm::vec3(6.0, 20.0, 5.0);
+        camera.Pitch = -84.0;
+        camera.Yaw = 270;
         camera.ProcessMouseMovement(0, 0);
         window = wnd;
         glfwMakeContextCurrent(window);
@@ -172,47 +181,50 @@ public:
         rock = new Model(tr909_key_intermediate_obj, tr909_key_intermediate_obj_len);
         /* Make the window's context current */
 
-
         const std::string vertexShaderCodeStr =  std::string(vertexShaderCode22);
         const std::string fragmentShaderCodeStr = std::string(fragmentShaderCode22);
 
         shader = new Shader(vertexShaderCodeStr,  fragmentShaderCodeStr );
 
-        modelMatrices = new glm::mat4[amount];
+
+        modelMatrices = new glm::mat4[numKeys];
         srand(static_cast<unsigned int>(glfwGetTime())); // initialize random seed
         float radius = 150.0;
         float offset = 25.0f;
-        for (unsigned int i = 0; i < amount; i++)
-        {
-            glm::mat4 model = glm::mat4(1.0f);/*
-            // 1. translation: displace along circle with 'radius' in range [-offset, offset]
-            float angle = (float)i / (float)amount * 360.0f;
-            float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-            float x = sin(angle) * radius + displacement;
-            displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-            float y = displacement * 0.4f; // keep height of asteroid field smaller compared to width of x and z
-            displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-            float z = cos(angle) * radius + displacement;
-            //model = glm::translate(model, glm::vec3(x, y, z));
+        unsigned int i = 0;
+        for (unsigned int c=0; c < numCol; c++)
+            for (unsigned int r=0; r < numRows; r++)
+            {
+                glm::mat4 model = glm::mat4(1.0f);/*
+                // 1. translation: displace along circle with 'radius' in range [-offset, offset]
+                float angle = (float)i / (float)amount * 360.0f;
+                float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+                float x = sin(angle) * radius + displacement;
+                displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+                float y = displacement * 0.4f; // keep height of asteroid field smaller compared to width of x and z
+                displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+                float z = cos(angle) * radius + displacement;
+                //model = glm::translate(model, glm::vec3(x, y, z));
 
-            // 2. scale: Scale between 0.05 and 0.25f
-            float scale = static_cast<float>((rand() % 20) / 100.0 + 0.05);
-            model = glm::scale(model, glm::vec3(scale));
+                // 2. scale: Scale between 0.05 and 0.25f
+                float scale = static_cast<float>((rand() % 20) / 100.0 + 0.05);
+                model = glm::scale(model, glm::vec3(scale));
 
-            // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
-            float rotAngle = static_cast<float>((rand() % 360));
-            //model = glm::rotate(model, rotAngle, glm::vec3(0.4f, 0.6f, 0.8f));
-*/
-            // 4. now add to list of matrices
-            model = glm::translate(model, glm::vec3(i * 2.5, 0, 0));
+                // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
+                float rotAngle = static_cast<float>((rand() % 360));
+                //model = glm::rotate(model, rotAngle, glm::vec3(0.4f, 0.6f, 0.8f));
+    */
+                // 4. now add to list of matrices
+                model = glm::translate(model, glm::vec3(c * 2.5, 0.0f, r * 2.5));
 
-            modelMatrices[i] = model;
-        }
+                modelMatrices[i] = model;
+                i++;
+            }
 
 
         glGenBuffers(1, &buffer2);
         glBindBuffer(GL_ARRAY_BUFFER, buffer2);
-        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(float), &modelTextureIndex[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, numKeys * sizeof(float), &modelTextureIndex[0], GL_STATIC_DRAW);
         for (unsigned int i = 0; i < rock->meshes.size(); i++)
         {
             unsigned int VAO = rock->meshes[i].VAO;
@@ -230,7 +242,7 @@ public:
         // -------------------------
         glGenBuffers(1, &buffer);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
-        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(glm::mat4), &modelMatrices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, numKeys * sizeof(glm::mat4), &modelMatrices[0], GL_STATIC_DRAW);
 
 
         // set transformation matrices as an instance vertex attribute (with divisor 1)
@@ -306,7 +318,7 @@ public:
     }
 
     void refresh() {
-        for (uint8_t i=0; i<16; i++) {
+        for (uint8_t i=0; i<24; i++) {
             float ledPWM = xr1_model->_tlc5947.getPWM(i) / 4095.0f;
             xr1_model->ledStates[i] =  ledPWM;
             modelTextureIndex[i] = xr1_model->ledStates[i];
@@ -324,7 +336,7 @@ public:
 
         // render
         // ------
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // configure transformation matrices - TODO fix the hardcoded 640 x 480 below
@@ -337,7 +349,7 @@ public:
         shader->setVec4("aColor2",1.0f, 0.7f, 0.7f, 1.0f);
         shader->setVec3("lightPos", lightPos);
         shader->setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-
+        shader->setVec3("viewPos", camera.Position);
         // draw planet
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, -3.0f, 0.0f));
@@ -357,9 +369,9 @@ public:
             glBindVertexArray(rock->meshes[i].VAO);
 
             glBindBuffer(GL_ARRAY_BUFFER, buffer2);
-            glBufferData(GL_ARRAY_BUFFER, amount * sizeof(float), &modelTextureIndex[0], GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, numKeys * sizeof(float), &modelTextureIndex[0], GL_STATIC_DRAW);
 
-            glDrawElementsInstanced(GL_TRIANGLES, static_cast<unsigned int>(rock->meshes[i].indices.size()), GL_UNSIGNED_INT, 0, amount);
+            glDrawElementsInstanced(GL_TRIANGLES, static_cast<unsigned int>(rock->meshes[i].indices.size()), GL_UNSIGNED_INT, 0, numKeys);
 
             glBindVertexArray(0);
 
@@ -384,6 +396,14 @@ public:
             camera.ProcessKeyboard(LEFT, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
             camera.ProcessKeyboard(RIGHT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+            camera.ProcessMouseMovement(1, 0);
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+            camera.ProcessMouseMovement(-1, 0);
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+            camera.ProcessMouseMovement(0, -1);
+        if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
+            camera.ProcessMouseMovement(0, 1);
     }
 
 
