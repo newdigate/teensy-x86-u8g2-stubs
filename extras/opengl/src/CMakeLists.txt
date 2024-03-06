@@ -35,6 +35,8 @@ set(HEADER_FILES
         u8g2_opengl.h
         u8g2_opengl_main.h
         u8g2_opengl_serial_log.h
+        u8g2_opengl_primaryview.h
+        opengl_3d_resources.h
         ../../xr1/XR1Model.h
         ../imgui/imgui_impl_opengl3.h
         ../imgui/imgui.h
